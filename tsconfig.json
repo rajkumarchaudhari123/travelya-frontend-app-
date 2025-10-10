@@ -1,4 +1,3 @@
-// tsconfig.json
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
@@ -20,12 +19,19 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "noEmit": true,
-    "isolatedModules": true
+    "isolatedModules": true,
+    "lib": ["ES2015", "DOM", "ES6"],
+    "target": "ES2015",
+    "module": "ES2015"
   },
   "include": [
     "**/*.ts",
     "**/*.tsx",
     "**/*.d.ts",
-    "nativewind-env.d.ts"
-, "index.js"  ]
+    "nativewind-env.d.ts",
+    "index.js"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }

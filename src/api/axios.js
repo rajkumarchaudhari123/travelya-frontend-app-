@@ -15,8 +15,8 @@ const getBaseURL = () => {
   // Development environment logic based on the platform
   if (__DEV__) {
     if (Platform.OS === 'android') {
-      // For Android Emulator (use 10.91.185.195 for localhost)
-      const url = 'http://10.91.185.195:10000/api'; 
+      // For Android Emulator (use 10.42.129.195 for localhost)
+      const url = 'http://10.42.129.195:10000/api'; 
       console.log('🔧 Using Android Emulator URL:', url);
       return url;
     }
@@ -29,7 +29,7 @@ const getBaseURL = () => {
     }
 
     // For physical devices, use your machine's local IP (replace with actual IP)
-    const url = 'http://10.91.185.195:10000/api';
+    const url = 'http://10.42.129.195:10000/api';
     console.log('🔧 Using Physical Device URL:', url);
     return url;
   }

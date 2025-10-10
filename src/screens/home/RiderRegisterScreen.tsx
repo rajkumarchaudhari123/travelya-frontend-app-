@@ -1,8 +1,27 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Modal, Pressable } from "react-native";
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  ScrollView, 
+  Image, 
+  Modal, 
+  Pressable, 
+  Alert // Add Alert import
+} from "react-native";
 import Checkbox from "expo-checkbox";
 import * as ImagePicker from "expo-image-picker";
-import api from '../../api/axios'; // Import the Axios instance
+import { useNavigation } from '@react-navigation/native'; // Add navigation import
+import { NativeStackNavigationProp } from '@react-navigation/native-stack'; // Add type import
+import api from '../../api/axios';
+import { AuthStackParamList } from '@/navigation/RootNavigator'; // Import your param list
+
+// Define navigation prop type
+type RiderRegisterScreenNavigationProp = NativeStackNavigationProp<
+  AuthStackParamList,
+  'RiderRegister'
+>;
 
 type FormState = {
   fullName: string;
@@ -23,6 +42,8 @@ type JourneyType = {
 };
 
 const RiderRegisterScreen = () => {
+  const navigation = useNavigation<RiderRegisterScreenNavigationProp>(); // Initialize navigation
+  
   const [form, setForm] = useState<FormState>({
     fullName: "",
     phone: "",
@@ -71,9 +92,12 @@ const RiderRegisterScreen = () => {
 
       const result = response.data;
       console.log("Response:", result);
-      // Handle success (navigate, show success message, etc.)
+
+      // Navigate to the DestinationSearchScreen after successful registration
+      navigation.navigate('DestinationSearch'); // Use the correct screen name from your param list
     } catch (error) {
       console.error("Error submitting data:", error);
+      Alert.alert("Registration failed", "Please try again later.");
     }
   };
 
