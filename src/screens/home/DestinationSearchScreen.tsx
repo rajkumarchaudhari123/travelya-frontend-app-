@@ -1,313 +1,574 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, Alert, ScrollView } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import React, { useState, useMemo } from 'react';
+import {
+  Alert,
+  Modal,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+  Dimensions,
+  ScrollView,
+  ActivityIndicator
+} from 'react-native';
+import api from '@/api/axios';
 
-// Define your navigation types
+// Types
 type RootStackParamList = {
-  DestinationSearchScreen: undefined;
-  BookingScreen: { vehicleType: string; fromLocation: string; toLocation: string };
-  // Add other screens as needed
+  DestinationSearch: undefined;
+  BookingScreen: {
+    vehicleType: string;
+    fromLocation: string;
+    toLocation: string;
+    price: string;
+    distance: string;
+    bookingId: string;
+  };
 };
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'DestinationSearchScreen'>;
+type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'DestinationSearch'>;
 
-// Example data for available vehicles
-const availableVehicles = [
-  { id: 1, type: 'Car', available: true },
-  { id: 2, type: 'Auto', available: false },
-  { id: 3, type: 'Car', available: true },
-  { id: 4, type: 'Bike', available: true },
+interface SuggestionItem {
+  place_id: string;
+  display_name: string;
+  lat: string;
+  lon: string;
+}
+
+interface VehicleType {
+  id: string;
+  name: string;
+  icon: string;
+  price: number;
+  seats: string;
+  time: string;
+  color: string;
+  selected: boolean;
+}
+
+// Constants
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+const LOCATIONIQ_KEY = 'pk.4e99c2bb6538458479e6e356415d31cf';
+const RATE_PER_KM = 20;
+
+// Initial Vehicles Data
+const initialVehicles: VehicleType[] = [
+  { id: '1', name: 'Auto', icon: 'bicycle', price: 0, seats: '3 Seats', time: '5-10 min', color: '#EF4444', selected: false },
+  { id: '2', name: 'Mini Car', icon: 'car-sport', price: 0, seats: '4 Seats', time: '5-10 min', color: '#3B82F6', selected: false },
+  { id: '3', name: 'Sedan', icon: 'car', price: 0, seats: '4 Seats', time: '5-10 min', color: '#10B981', selected: false },
+  { id: '4', name: 'SUV', icon: 'car-sport', price: 0, seats: '6 Seats', time: '5-10 min', color: '#F59E0B', selected: false },
+  { id: '5', name: '7-Seater', icon: 'people', price: 0, seats: '7 Seats', time: '5-10 min', color: '#8B5CF6', selected: false }
 ];
 
-const DestinationSearchScreen: React.FC = () => {
+export default function DestinationSearchScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const [fromLocation, setFromLocation] = useState('');
-  const [toLocation, setToLocation] = useState('');
-  const [fromSuggestions, setFromSuggestions] = useState<any[]>([]);
-  const [toSuggestions, setToSuggestions] = useState<any[]>([]);
-  const [selectedFromLocation, setSelectedFromLocation] = useState<any>(null);
-  const [selectedToLocation, setSelectedToLocation] = useState<any>(null);
-  const [availableVehicleList, setAvailableVehicleList] = useState(availableVehicles);
 
-  // Your LocationIQ API key
-  const LOCATIONIQ_KEY = 'your_locationiq_api_key_here'; // Replace with your actual key
+  // State
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [pickup, setPickup] = useState('');
+  const [drop, setDrop] = useState('');
+  const [fromSuggestions, setFromSuggestions] = useState<SuggestionItem[]>([]);
+  const [toSuggestions, setToSuggestions] = useState<SuggestionItem[]>([]);
+  const [selectedFromLocation, setSelectedFromLocation] = useState<SuggestionItem | null>(null);
+  const [selectedToLocation, setSelectedToLocation] = useState<SuggestionItem | null>(null);
+  const [activeField, setActiveField] = useState<'pickup' | 'drop' | null>(null);
+  const [distance, setDistance] = useState<number | null>(null);
+  const [baseFare, setBaseFare] = useState<number | null>(null);
+  const [selectedVehicle, setSelectedVehicle] = useState<VehicleType | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [calculatingFare, setCalculatingFare] = useState(false);
+  const [vehicles, setVehicles] = useState<VehicleType[]>(initialVehicles);
 
-  // Search locations using LocationIQ API
-  const searchLocations = async (query: string, setSuggestions: React.Dispatch<React.SetStateAction<any[]>>) => {
-    if (query.length < 3) {
+  // Memoized responsive styles
+  const responsiveStyles = useMemo(() => {
+    const isSmallScreen = screenWidth < 375;
+    const isLargeScreen = screenWidth >= 414;
+
+    return {
+      titleSize: isSmallScreen ? 'text-xl' : isLargeScreen ? 'text-3xl' : 'text-2xl',
+      subtitleSize: isSmallScreen ? 'text-sm' : 'text-base',
+      modalTitleSize: isSmallScreen ? 'text-lg' : 'text-xl',
+      inputTextSize: isSmallScreen ? 'text-sm' : 'text-base',
+      vehicleTextSize: isSmallScreen ? 'text-xs' : 'text-sm',
+      priceTextSize: isSmallScreen ? 'text-sm' : 'text-base',
+      containerPadding: isSmallScreen ? 'px-4' : 'px-5',
+      modalPadding: isSmallScreen ? 'p-4' : 'p-5',
+      inputPadding: isSmallScreen ? 'p-2' : 'p-3',
+      buttonPadding: isSmallScreen ? 'p-3' : 'p-4',
+      iconSize: isSmallScreen ? 20 : 24,
+      largeIconSize: isSmallScreen ? 24 : 28,
+      modalWidth: isSmallScreen ? 'w-11/12' : 'w-10/12',
+      modalMaxHeight: isSmallScreen ? 'max-h-3/4' : 'max-h-4/5',
+      vehicleMinWidth: isSmallScreen ? 'min-w-[48%]' : 'min-w-[45%]',
+      vehiclePadding: isSmallScreen ? 'p-2' : 'p-3',
+      vehicleIconSize: isSmallScreen ? 20 : 24,
+    };
+  }, []);
+
+  // Helper Functions
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  const getPriceMultiplier = (vehicleName: string): number => {
+    const multipliers: { [key: string]: number } = {
+      'Auto': 0.7,
+      'Mini Car': 0.9,
+      'Sedan': 1,
+      'SUV': 1.2,
+      '7-Seater': 1.5
+    };
+    return multipliers[vehicleName] || 1;
+  };
+
+  // API Functions
+  const fetchLocationData = async (endpoint: string, errorMessage: string) => {
+    try {
+      const response = await api.get(endpoint);
+      if (response.data?.success && response.data.data?.[0]) {
+        return response.data.data[0];
+      }
+    } catch (error: any) {
+      console.log(`❌ ${errorMessage}:`, error.message);
+    }
+    return null;
+  };
+
+  const fillCurrentLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission denied', 'Location permission is required');
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({});
+
+      // Try backend first, then fallback to LocationIQ
+      let locationData = await fetchLocationData(
+        `/api/destination-search/search?query=${location.coords.latitude},${location.coords.longitude}`,
+        'Backend reverse geocoding failed'
+      );
+
+      if (!locationData) {
+        const response = await fetch(
+          `https://us1.locationiq.com/v1/reverse?key=${LOCATIONIQ_KEY}&lat=${location.coords.latitude}&lon=${location.coords.longitude}&format=json`
+        );
+        locationData = await response.json();
+      }
+
+      if (locationData?.display_name) {
+        setPickup(locationData.display_name);
+        setSelectedFromLocation({
+          place_id: locationData.place_id,
+          display_name: locationData.display_name,
+          lat: locationData.lat,
+          lon: locationData.lon
+        });
+      }
+    } catch (error: any) {
+      console.error('❌ Location error:', error.message);
+      Alert.alert('Error', 'Failed to get current location');
+    }
+  };
+
+  const fetchSuggestions = async (text: string, setSuggestions: React.Dispatch<React.SetStateAction<SuggestionItem[]>>) => {
+    if (text.length < 3) {
       setSuggestions([]);
       return;
     }
 
     try {
+      // Try backend first
+      const response = await api.get(`/api/destination-search/search?query=${encodeURIComponent(text)}`);
+      if (response.data?.success && response.data.data) {
+        setSuggestions(response.data.data);
+        return;
+      }
+    } catch (error: any) {
+      console.log('❌ Backend search failed:', error.message);
+    }
+
+    // Fallback to LocationIQ
+    try {
       const response = await fetch(
-        `https://us1.locationiq.com/v1/search?key=${LOCATIONIQ_KEY}&q=${encodeURIComponent(query)}&format=json&limit=5`
+        `https://us1.locationiq.com/v1/search?key=${LOCATIONIQ_KEY}&q=${encodeURIComponent(text)}&format=json&limit=5`
       );
-      const data = await response.json();
+      const data: SuggestionItem[] = await response.json();
       setSuggestions(data);
-    } catch (error) {
-      console.error('Location search error:', error);
-      Alert.alert('Error', 'Failed to search locations');
+    } catch (error: any) {
+      console.error('❌ Fallback search failed:', error.message);
+      setSuggestions([]);
     }
   };
 
+  const calculateFareIfPossible = async (from: SuggestionItem | null, to: SuggestionItem | null) => {
+    if (!from || !to) return;
+
+    setCalculatingFare(true);
+
+    try {
+      // Try backend fare calculation
+      const response = await api.post('/api/destination-search/calculate-fare', {
+        fromLat: from.lat,
+        fromLon: from.lon,
+        toLat: to.lat,
+        toLon: to.lon
+      });
+
+      if (response.data?.success && response.data.data) {
+        const { distance: backendDistance, baseFare: backendBaseFare } = response.data.data;
+        setDistance(parseFloat(backendDistance));
+        setBaseFare(parseFloat(backendBaseFare));
+
+        const updatedVehicles = vehicles.map(vehicle => {
+          const backendVehicle = response.data.data.vehicles?.find((v: any) =>
+            v.name.toLowerCase() === vehicle.name.toLowerCase()
+          );
+          return {
+            ...vehicle,
+            price: backendVehicle ? parseFloat(backendVehicle.price) : vehicle.price,
+            selected: false
+          };
+        });
+        setVehicles(updatedVehicles);
+      }
+    } catch (error: any) {
+      // Client-side calculation fallback
+      console.log('❌ Backend fare calculation failed, using client-side');
+      const lat1 = parseFloat(from.lat);
+      const lon1 = parseFloat(from.lon);
+      const lat2 = parseFloat(to.lat);
+      const lon2 = parseFloat(to.lon);
+
+      const calculatedDistance = calculateDistance(lat1, lon1, lat2, lon2);
+      const calculatedBaseFare = calculatedDistance * RATE_PER_KM;
+
+      setDistance(parseFloat(calculatedDistance.toFixed(2)));
+      setBaseFare(parseFloat(calculatedBaseFare.toFixed(2)));
+
+      const updatedVehicles = vehicles.map(vehicle => ({
+        ...vehicle,
+        price: parseFloat((calculatedBaseFare * getPriceMultiplier(vehicle.name)).toFixed(2)),
+        selected: false
+      }));
+      setVehicles(updatedVehicles);
+    } finally {
+      setCalculatingFare(false);
+      setSelectedVehicle(null);
+    }
+  };
+
+  // Event Handlers
   const handleFromLocationSearch = (text: string) => {
-    setFromLocation(text);
-    searchLocations(text, setFromSuggestions);
+    setPickup(text);
+    fetchSuggestions(text, setFromSuggestions);
+    setActiveField('pickup');
   };
 
   const handleToLocationSearch = (text: string) => {
-    setToLocation(text);
-    searchLocations(text, setToSuggestions);
+    setDrop(text);
+    fetchSuggestions(text, setToSuggestions);
+    setActiveField('drop');
   };
 
-  const handleSelectFromLocation = (location: any) => {
-    setFromLocation(location.display_name);
-    setSelectedFromLocation(location);
+  const handleSelectFromLocation = async (item: SuggestionItem) => {
+    setPickup(item.display_name);
+    setSelectedFromLocation(item);
     setFromSuggestions([]);
+    setActiveField(null);
+    await calculateFareIfPossible(item, selectedToLocation);
   };
 
-  const handleSelectToLocation = (location: any) => {
-    setToLocation(location.display_name);
-    setSelectedToLocation(location);
+  const handleSelectToLocation = async (item: SuggestionItem) => {
+    setDrop(item.display_name);
+    setSelectedToLocation(item);
     setToSuggestions([]);
+    setActiveField(null);
+    await calculateFareIfPossible(selectedFromLocation, item);
   };
 
-  const handleSearchRoute = () => {
-    if (!fromLocation || !toLocation) {
-      return Alert.alert('Error', 'Please provide both start and destination locations.');
+  const handleVehicleSelect = (vehicle: VehicleType) => {
+    if (!distance || !baseFare) {
+      Alert.alert('Error', 'Please select pickup and drop location first.');
+      return;
     }
 
-    if (!selectedFromLocation || !selectedToLocation) {
-      return Alert.alert('Error', 'Please select locations from the suggestions.');
+    const calculatedFare = distance * RATE_PER_KM * getPriceMultiplier(vehicle.name);
+    const updatedVehicles = vehicles.map(v => ({
+      ...v,
+      selected: v.id === vehicle.id,
+      price: v.id === vehicle.id ? parseFloat(calculatedFare.toFixed(2)) : v.price
+    }));
+
+    setVehicles(updatedVehicles);
+    setSelectedVehicle({ ...vehicle, price: parseFloat(calculatedFare.toFixed(2)) });
+  };
+
+  const handleBookRide = async () => {
+    if (!pickup || !drop || !selectedVehicle || !distance || selectedVehicle.price === 0) {
+      Alert.alert('Error', 'Please complete all booking details and wait for price calculation');
+      return;
     }
 
-    // Filter available vehicles
-    setAvailableVehicleList(availableVehicles.filter(vehicle => vehicle.available));
+    setLoading(true);
 
-    Alert.alert('Success', `Route from ${fromLocation} to ${toLocation} found!`);
+    try {
+      const bookingData = {
+        vehicleType: selectedVehicle.name,
+        fromLocation: pickup,
+        toLocation: drop,
+        price: Number(selectedVehicle.price),
+        distance: Number(distance),
+        fromLat: selectedFromLocation?.lat || '0',
+        fromLon: selectedFromLocation?.lon || '0',
+        toLat: selectedToLocation?.lat || '0',
+        toLon: selectedToLocation?.lon || '0',
+      };
+
+      const response = await api.post('/api/destination-search/book-ride', bookingData);
+
+      if (response.data?.success) {
+        Alert.alert(
+          'Booking Confirmed!',
+          `Your ${selectedVehicle.name} is booked!\nFrom: ${pickup}\nTo: ${drop}\nDistance: ${distance.toFixed(2)} km\nTotal Fare: ₹${selectedVehicle.price.toFixed(2)}`
+        );
+
+        navigation.navigate('BookingScreen', {
+          vehicleType: selectedVehicle.name,
+          fromLocation: pickup,
+          toLocation: drop,
+          price: selectedVehicle.price.toFixed(2),
+          distance: distance.toFixed(2),
+          bookingId: response.data.data.id
+        });
+        setShowDropdown(false);
+      } else {
+        throw new Error(response.data?.message || 'Booking failed');
+      }
+    } catch (error: any) {
+      console.error('Booking error:', error.response?.data);
+      Alert.alert('Booking Failed', error.response?.data?.message || 'Please try again');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleBookVehicle = (vehicleType: string) => {
-    navigation.navigate('BookingScreen', { 
-      vehicleType, 
-      fromLocation: fromLocation, 
-      toLocation: toLocation 
-    });
-  };
-
-  const renderSuggestionItem = (item: any, onSelect: (location: any) => void) => (
-    <TouchableOpacity
-      style={styles.suggestionItem}
-      onPress={() => onSelect(item)}
-    >
-      <Text style={styles.suggestionText} numberOfLines={2}>
-        {item.display_name}
-      </Text>
-    </TouchableOpacity>
-  );
-
-  return (
-    <View style={styles.container}>
-      <ScrollView style={styles.scrollView}>
-        {/* From Location Input */}
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>From</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter pickup location"
-            value={fromLocation}
-            onChangeText={handleFromLocationSearch}
-          />
-          {fromSuggestions.length > 0 && (
-            <View style={styles.suggestionsContainer}>
-              <FlatList
-                data={fromSuggestions}
-                keyExtractor={(item) => item.place_id.toString()}
-                renderItem={({ item }) => renderSuggestionItem(item, handleSelectFromLocation)}
-                scrollEnabled={false}
-              />
-            </View>
-          )}
-        </View>
-
-        {/* To Location Input */}
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>To</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter destination"
-            value={toLocation}
-            onChangeText={handleToLocationSearch}
-          />
-          {toSuggestions.length > 0 && (
-            <View style={styles.suggestionsContainer}>
-              <FlatList
-                data={toSuggestions}
-                keyExtractor={(item) => item.place_id.toString()}
-                renderItem={({ item }) => renderSuggestionItem(item, handleSelectToLocation)}
-                scrollEnabled={false}
-              />
-            </View>
-          )}
-        </View>
-
-        {/* Search Route Button */}
-        <TouchableOpacity onPress={handleSearchRoute} style={styles.searchButton}>
-          <Text style={styles.buttonText}>Search Route</Text>
-        </TouchableOpacity>
-
-        {/* Selected Locations Display */}
-        {(selectedFromLocation || selectedToLocation) && (
-          <View style={styles.selectedLocations}>
-            <Text style={styles.selectedTitle}>Selected Locations:</Text>
-            {selectedFromLocation && (
-              <Text style={styles.selectedText}>
-                From: {selectedFromLocation.display_name}
-              </Text>
-            )}
-            {selectedToLocation && (
-              <Text style={styles.selectedText}>
-                To: {selectedToLocation.display_name}
-              </Text>
-            )}
-          </View>
-        )}
-
-        {/* Available Vehicles */}
-        <Text style={styles.vehiclesTitle}>Available Vehicles</Text>
-        <FlatList
-          data={availableVehicleList}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item }) => (
-            <TouchableOpacity 
-              onPress={() => handleBookVehicle(item.type)} 
-              style={[
-                styles.vehicleItem,
-                item.available ? styles.vehicleAvailable : styles.vehicleUnavailable
-              ]}
-              disabled={!item.available}
-            >
-              <Text style={styles.vehicleText}>
-                {item.type} {!item.available && '(Not Available)'}
-              </Text>
-            </TouchableOpacity>
-          )}
-          scrollEnabled={false}
-        />
+  // Render Functions
+  const renderSuggestions = (suggestions: SuggestionItem[], onSelect: (item: SuggestionItem) => void) => (
+    <View className="bg-white border border-gray-300 rounded-lg mt-1 max-h-48 z-50 shadow-lg">
+      <ScrollView nestedScrollEnabled={true} showsVerticalScrollIndicator={true}>
+        {suggestions.map((item) => (
+          <Pressable
+            key={item.place_id}
+            className="p-3 border-b border-gray-200 active:bg-gray-100"
+            onPress={() => onSelect(item)}
+          >
+            <Text className={`text-gray-800 ${responsiveStyles.inputTextSize}`} numberOfLines={2}>
+              {item.display_name}
+            </Text>
+          </Pressable>
+        ))}
       </ScrollView>
     </View>
   );
-};
 
-const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: '#fff' 
-  },
-  scrollView: {
-    flex: 1,
-    padding: 16,
-  },
-  inputContainer: {
-    marginBottom: 16,
-    zIndex: 1,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-    color: '#333',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: '#fff',
-  },
-  suggestionsContainer: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    maxHeight: 200,
-    zIndex: 1000,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  suggestionItem: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  suggestionText: {
-    fontSize: 14,
-    color: '#333',
-  },
-  searchButton: { 
-    backgroundColor: '#007bff', 
-    padding: 16, 
-    marginTop: 8, 
-    alignItems: 'center', 
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  buttonText: { 
-    color: '#fff', 
-    fontWeight: 'bold', 
-    fontSize: 16 
-  },
-  selectedLocations: {
-    backgroundColor: '#f8f9fa',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  selectedTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#333',
-  },
-  selectedText: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-  },
-  vehiclesTitle: { 
-    fontSize: 18, 
-    fontWeight: 'bold', 
-    marginBottom: 12,
-    color: '#333',
-  },
-  vehicleItem: { 
-    padding: 16, 
-    marginBottom: 8, 
-    borderWidth: 1, 
-    borderColor: '#ddd', 
-    borderRadius: 8,
-  },
-  vehicleAvailable: {
-    backgroundColor: '#f9f9f9',
-  },
-  vehicleUnavailable: {
-    backgroundColor: '#e9ecef',
-    opacity: 0.6,
-  },
-  vehicleText: { 
-    fontSize: 16,
-    fontWeight: '500',
-  },
-});
+  const renderVehicleItem = (vehicle: VehicleType) => (
+    <Pressable
+      key={vehicle.id}
+      className={`border-2 rounded-xl m-1 flex-1 ${responsiveStyles.vehicleMinWidth} ${responsiveStyles.vehiclePadding} ${vehicle.selected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'
+        } active:opacity-70`}
+      onPress={() => handleVehicleSelect(vehicle)}
+    >
+      <View className="items-center">
+        <Ionicons name={vehicle.icon as any} size={responsiveStyles.vehicleIconSize} color={vehicle.color} />
+        <Text className={`font-bold text-gray-800 text-center mt-1 ${responsiveStyles.vehicleTextSize}`}>
+          {vehicle.name}
+        </Text>
+        <Text className={`text-green-600 font-semibold ${responsiveStyles.priceTextSize}`}>
+          ₹{vehicle.price.toFixed(2)}
+        </Text>
+        <Text className={`text-gray-500 ${responsiveStyles.vehicleTextSize}`}>{vehicle.seats}</Text>
+        <Text className={`text-gray-400 ${responsiveStyles.vehicleTextSize}`}>{vehicle.time}</Text>
+      </View>
+    </Pressable>
+  );
 
-export default DestinationSearchScreen;
+  return (
+    <View className="flex-1 bg-white">
+      <View className={`pt-16 ${responsiveStyles.containerPadding}`}>
+        <Text className={`font-bold text-gray-800 mb-2 text-center ${responsiveStyles.titleSize}`}>
+          🏙 Travelya
+        </Text>
+        <Text className={`text-gray-600 text-center mb-6 ${responsiveStyles.subtitleSize}`}>
+          Nearby car rentals and trips inside your city
+        </Text>
+
+        <Pressable
+          className="bg-white border border-gray-300 rounded-xl flex-row items-center shadow-sm active:bg-gray-50"
+          onPress={() => setShowDropdown(true)}
+        >
+          <View className="pl-3">
+            <Ionicons name="car-outline" size={responsiveStyles.largeIconSize} color="#374151" />
+          </View>
+          <Text className={`bg-gray-100 rounded-lg flex-1 ml-3 my-3 text-gray-600 ${responsiveStyles.inputPadding}`}>
+            Search Your Destination
+          </Text>
+        </Pressable>
+      </View>
+
+      <Modal visible={showDropdown} transparent animationType="slide" onRequestClose={() => setShowDropdown(false)}>
+        <View className="flex-1 bg-black/50 justify-center items-center">
+          <View className={`bg-white rounded-2xl ${responsiveStyles.modalWidth} ${responsiveStyles.modalMaxHeight} ${responsiveStyles.modalPadding}`}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
+              <Text className={`font-bold text-gray-800 mb-5 text-center ${responsiveStyles.modalTitleSize}`}>
+                Plan Your Ride
+              </Text>
+
+              {/* Pickup Field */}
+              <View className="mb-4 z-50">
+                <View className="flex-row items-center border border-gray-300 rounded-xl px-3 py-2">
+                  <Ionicons name="location-outline" size={responsiveStyles.iconSize} color="#374151" />
+                  <TextInput
+                    placeholder="Pickup Location"
+                    className={`flex-1 ml-2 text-gray-800 ${responsiveStyles.inputTextSize}`}
+                    placeholderTextColor="#9CA3AF"
+                    value={pickup}
+                    onFocus={() => setActiveField('pickup')}
+                    onChangeText={handleFromLocationSearch}
+                  />
+                </View>
+                {fromSuggestions.length > 0 && activeField === 'pickup' && renderSuggestions(fromSuggestions, handleSelectFromLocation)}
+              </View>
+
+              {/* Current Location Button */}
+              <Pressable
+                className="flex-row items-center bg-blue-50 rounded-lg mb-4 p-3 active:bg-blue-100"
+                onPress={fillCurrentLocation}
+              >
+                <Ionicons name="locate-outline" size={responsiveStyles.iconSize} color="#2563EB" />
+                <Text className={`ml-2 text-blue-600 font-semibold ${responsiveStyles.inputTextSize}`}>
+                  Use Current Location
+                </Text>
+              </Pressable>
+
+              {/* Drop Field */}
+              <View className="mb-4 z-40">
+                <View className="flex-row items-center border border-gray-300 rounded-xl px-3 py-2">
+                  <Ionicons name="flag-outline" size={responsiveStyles.iconSize} color="#374151" />
+                  <TextInput
+                    placeholder="Drop Location"
+                    className={`flex-1 ml-2 text-gray-800 ${responsiveStyles.inputTextSize}`}
+                    placeholderTextColor="#9CA3AF"
+                    value={drop}
+                    onFocus={() => setActiveField('drop')}
+                    onChangeText={handleToLocationSearch}
+                  />
+                </View>
+                {toSuggestions.length > 0 && activeField === 'drop' && renderSuggestions(toSuggestions, handleSelectToLocation)}
+              </View>
+
+              {/* Selected Locations & Fare Info */}
+              {(selectedFromLocation || selectedToLocation) && (
+                <View className="bg-gray-50 rounded-lg mb-4 p-3">
+                  <Text className={`font-semibold text-gray-800 mb-2 ${responsiveStyles.inputTextSize}`}>
+                    Selected Locations:
+                  </Text>
+                  {selectedFromLocation && (
+                    <Text className={`text-gray-600 mb-1 ${responsiveStyles.vehicleTextSize}`} numberOfLines={2}>
+                      From: {selectedFromLocation.display_name}
+                    </Text>
+                  )}
+                  {selectedToLocation && (
+                    <Text className={`text-gray-600 mb-1 ${responsiveStyles.vehicleTextSize}`} numberOfLines={2}>
+                      To: {selectedToLocation.display_name}
+                    </Text>
+                  )}
+                  {distance !== null && baseFare !== null && (
+                    <View className="mt-2 pt-2 border-t border-gray-300">
+                      <Text className={`text-green-600 font-semibold ${responsiveStyles.inputTextSize}`}>
+                        Distance: {distance.toFixed(2)} km
+                      </Text>
+                      <Text className={`text-green-600 font-bold ${responsiveStyles.priceTextSize}`}>
+                        Base Fare: ₹{baseFare.toFixed(2)}
+                      </Text>
+                      <Text className={`text-gray-500 mt-1 ${responsiveStyles.vehicleTextSize}`}>
+                        Rate: ₹{RATE_PER_KM} per km
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {/* Vehicle Selection */}
+              {distance !== null && baseFare !== null && (
+                <View className="mb-4">
+                  <Text className={`font-semibold text-gray-800 mb-3 ${responsiveStyles.inputTextSize}`}>
+                    Choose Your Vehicle:
+                  </Text>
+                  {calculatingFare ? (
+                    <View className="items-center py-4">
+                      <ActivityIndicator size="large" color="#3B82F6" />
+                      <Text className="text-gray-500 mt-2">Calculating fares...</Text>
+                    </View>
+                  ) : (
+                    <View className="flex-row flex-wrap justify-between">
+                      {vehicles.map(renderVehicleItem)}
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {/* Selected Vehicle Display */}
+              {selectedVehicle && (
+                <View className="bg-green-50 rounded-lg mb-4 border border-green-200 p-3">
+                  <View className="flex-row items-center justify-center">
+                    <Ionicons name={selectedVehicle.icon as any} size={responsiveStyles.iconSize} color={selectedVehicle.color} />
+                    <Text className={`text-green-800 font-semibold text-center ml-2 ${responsiveStyles.inputTextSize}`}>
+                      Selected: {selectedVehicle.name} - ₹{selectedVehicle.price.toFixed(2)}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Action Buttons */}
+              <Pressable
+                className={`rounded-xl mt-2 ${responsiveStyles.buttonPadding} ${!pickup || !drop || !selectedVehicle || loading ? 'bg-gray-400' : 'bg-green-600 active:bg-green-700'
+                  }`}
+                onPress={handleBookRide}
+                disabled={!pickup || !drop || !selectedVehicle || loading}
+              >
+                {loading ? (
+                  <View className="flex-row items-center justify-center">
+                    <ActivityIndicator color="white" size="small" />
+                    <Text className="text-white text-center font-bold text-lg ml-2">Booking...</Text>
+                  </View>
+                ) : (
+                  <Text className="text-white text-center font-bold text-lg">
+                    ✅ Book {selectedVehicle?.name || 'Ride'}
+                  </Text>
+                )}
+              </Pressable>
+
+              <Pressable className="mt-3 active:opacity-70" onPress={() => setShowDropdown(false)}>
+                <Text className={`text-blue-600 text-center font-semibold ${responsiveStyles.inputTextSize}`}>
+                  Cancel
+                </Text>
+              </Pressable>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
