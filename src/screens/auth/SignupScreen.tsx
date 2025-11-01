@@ -3,16 +3,18 @@ import {
   View,
   Text,
   TextInput,
-  StyleSheet,
   TouchableOpacity,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform
 } from 'react-native';
 import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { AuthStackParamList } from '../../navigation/RootNavigator';
-import Icon from 'react-native-vector-icons/MaterialIcons'; // For Show/Hide password icon
+import Icon from 'react-native-vector-icons/MaterialIcons';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Signup'>;
 
@@ -20,7 +22,7 @@ export default function SignupScreen({ navigation }: Props) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false); // State to control password visibility
+  const [showPassword, setShowPassword] = useState(false);
 
   const onSubmit = async () => {
     if (!email || !password) {
@@ -56,113 +58,87 @@ export default function SignupScreen({ navigation }: Props) {
   };
 
   return (
-    <View style={s.container}>
-      <Text style={s.heading}>Create Account</Text>
-
-      <TextInput
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        style={s.input}
-        keyboardType="email-address"
-        autoComplete="email"
-        textContentType="emailAddress"
-      />
-
-      <View style={s.passwordContainer}>
-        <TextInput
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          style={s.input}
-          secureTextEntry={!showPassword}  // Toggle visibility of password
-        />
-        <TouchableOpacity onPress={() => setShowPassword(prev => !prev)} style={s.eyeIcon}>
-          <Icon name={showPassword ? 'visibility-off' : 'visibility'} size={24} color="#fff" />
-        </TouchableOpacity>
-      </View>
-
-      <TouchableOpacity
-        style={s.button}
-        onPress={onSubmit}
-        disabled={loading}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      className="flex-1 bg-white"
+    >
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1 }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        <Text style={s.buttonText}>{loading ? 'Creating Account...' : 'Create Account'}</Text>
-      </TouchableOpacity>
+        <View className="flex-1 px-6 justify-center">
+          {/* Header Section */}
+          <View className="items-center mb-8">
+            <Text className="text-black text-3xl md:text-4xl font-bold text-center mb-3">
+              Create Account
+            </Text>
+          </View>
 
-      {loading && <ActivityIndicator style={{ marginTop: 10 }} />}
+          {/* Form Section */}
+          <View className="w-full max-w-md mx-auto">
+            <Text className="text-black font-semibold mb-2 text-base md:text-lg">Email</Text>
+            <TextInput
+              placeholder="Email"
+              placeholderTextColor="#9CA3AF"
+              value={email}
+              onChangeText={setEmail}
+              className="w-full border border-gray-300 p-4 rounded-xl mb-4 text-base md:text-lg bg-white text-black"
+              keyboardType="email-address"
+              autoComplete="email"
+              textContentType="emailAddress"
+              autoCapitalize="none"
+            />
 
-      <View style={s.loginLinkContainer}>
-        <Text style={s.textWhite}>Already have an account? </Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-          <Text style={s.link}>Login</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+            <Text className="text-black font-semibold mb-2 text-base md:text-lg">Password</Text>
+            <View className="w-full border border-gray-300 rounded-xl bg-white mb-6 flex-row items-center">
+              <TextInput
+                placeholder="Password"
+                placeholderTextColor="#9CA3AF"
+                value={password}
+                onChangeText={setPassword}
+                className="flex-1 p-4 text-black text-base md:text-lg"
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                onPress={() => setShowPassword(prev => !prev)}
+                className="p-4"
+              >
+                <Icon
+                  name={showPassword ? 'visibility-off' : 'visibility'}
+                  size={24}
+                  color="#000"
+                />
+              </TouchableOpacity>
+            </View>
+
+            {/* Signup Button */}
+            <TouchableOpacity
+              className="w-full bg-green-500 rounded-xl mb-4 py-4 items-center"
+              onPress={onSubmit}
+              disabled={loading}
+            >
+              <Text className="text-black text-base md:text-lg font-semibold">
+                {loading ? 'Creating Account...' : 'Create Account'}
+              </Text>
+            </TouchableOpacity>
+
+            {loading && <ActivityIndicator size="large" className="mt-4" color="#000" />}
+
+            {/* Login Link */}
+            <View className="flex-row justify-center mt-6">
+              <Text className="text-black">Already have an account? </Text>
+              <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+                <Text className="text-blue-600 font-medium">Login</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Spacer for small screens */}
+          <View className="h-10" />
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
-
-const s = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    backgroundColor: '#000', // Black background
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  heading: {
-    fontSize: 30,
-    fontWeight: 'bold',
-    color: '#fff',  // White text for heading
-    marginBottom: 40,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#fff',  // White border color for inputs
-    padding: 16,
-    borderRadius: 8,
-    backgroundColor: '#222', // Dark background for input
-    marginBottom: 20,
-    color: '#fff', // White text color in input fields
-    fontSize: 16,
-  },
-  passwordContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#fff',
-    padding: 16,
-    borderRadius: 8,
-    backgroundColor: '#222',
-    marginBottom: 20,
-  },
-  eyeIcon: {
-    position: 'absolute',
-    right: 16,
-  },
-  button: {
-    backgroundColor: '#4CAF50', // Green color for button
-    borderRadius: 8,
-    marginBottom: 20,
-    paddingVertical: 14,
-    width: '100%',  // Full width button
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#fff', // White text on the button
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  textWhite: {
-    color: '#fff', // White text for links
-  },
-  link: {
-    color: '#2563eb', // Blue color for the login link
-    fontWeight: '500',
-  },
-  loginLinkContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 16,
-  },
-});

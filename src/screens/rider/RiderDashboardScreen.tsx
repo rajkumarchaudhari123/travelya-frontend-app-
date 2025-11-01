@@ -1,14 +1,43 @@
 // screens/rider/RiderDashboardScreen.tsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type RiderDashboardNavigationProp = NativeStackNavigationProp<any>;
 
+interface RiderData {
+  id: string;
+  fullName: string;
+  phone: string;
+  email: string;
+}
+
 export default function RiderDashboardScreen() {
   const navigation = useNavigation<RiderDashboardNavigationProp>();
+  const [riderData, setRiderData] = useState<RiderData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Load rider data from AsyncStorage
+  useEffect(() => {
+    const loadRiderData = async () => {
+      try {
+        const storedRiderData = await AsyncStorage.getItem('riderData');
+        if (storedRiderData) {
+          const rider = JSON.parse(storedRiderData);
+          setRiderData(rider);
+        }
+      } catch (error) {
+        console.error('Error loading rider data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadRiderData();
+  }, []);
 
   const quickActions = [
     {
@@ -17,42 +46,29 @@ export default function RiderDashboardScreen() {
       color: '#10B981',
       screen: 'DestinationSearch'
     },
-    {
-      title: 'My Rides',
-      icon: 'time',
-      color: '#3B82F6',
-      screen: 'BookingScreen'
-    },
-    {
-      title: 'Ride History',
-      icon: 'list',
-      color: '#8B5CF6',
-      screen: 'RideHistory'
-    },
-    {
-      title: 'Payments',
-      icon: 'wallet',
-      color: '#F59E0B',
-      screen: 'Payments'
-    }
   ];
 
-  const recentRides = [
-    { id: 1, from: 'Connaught Place', to: 'Airport', date: 'Today, 10:30 AM', price: '₹250' },
-    { id: 2, from: 'Home', to: 'Office', date: 'Yesterday, 09:15 AM', price: '₹180' },
-  ];
+  if (loading) {
+    return (
+      <View className="flex-1 bg-gray-50 justify-center items-center">
+        <Text className="text-gray-600 text-lg">Loading...</Text>
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1 bg-gray-50">
       {/* Header */}
       <View className="bg-white px-6 pt-12 pb-6 shadow-sm">
         <View className="flex-row justify-between items-center">
-          <View>
-            <Text className="text-2xl font-bold text-gray-800">Welcome back!</Text>
-            <Text className="text-gray-600 mt-1">Ready for your next ride?</Text>
+          <View className="flex-1">
+            <Text className="text-2xl font-bold text-gray-800">
+              {riderData ? `Welcome, ${riderData.fullName}!` : 'Welcome back!'}
+            </Text>
+            <Text className="text-gray-600 mt-1">Travelya में आपका स्वागत है</Text>
           </View>
           <TouchableOpacity 
-            className="bg-blue-100 p-3 rounded-full"
+            className="bg-blue-100 p-3 rounded-full ml-4"
             onPress={() => navigation.navigate('Profile' as never)}
           >
             <Ionicons name="person" size={24} color="#3B82F6" />
@@ -85,51 +101,43 @@ export default function RiderDashboardScreen() {
           </View>
         </View>
 
-        {/* Recent Rides */}
-        <View className="mt-4 mb-6">
-          <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-xl font-bold text-gray-800">Recent Rides</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('RideHistory' as never)}>
-              <Text className="text-blue-600 font-semibold">View All</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View className="bg-white rounded-xl shadow-sm">
-            {recentRides.map((ride) => (
-              <TouchableOpacity
-                key={ride.id}
-                className="p-4 border-b border-gray-100 last:border-b-0"
-              >
-                <View className="flex-row justify-between items-start">
-                  <View className="flex-1">
-                    <View className="flex-row items-center mb-2">
-                      <View className="w-2 h-2 bg-green-500 rounded-full mr-2" />
-                      <Text className="text-gray-800 font-medium" numberOfLines={1}>
-                        {ride.from}
-                      </Text>
-                    </View>
-                    <View className="flex-row items-center mb-1">
-                      <View className="w-2 h-2 bg-red-500 rounded-full mr-2" />
-                      <Text className="text-gray-800 font-medium" numberOfLines={1}>
-                        {ride.to}
-                      </Text>
-                    </View>
-                    <Text className="text-gray-500 text-sm">{ride.date}</Text>
-                  </View>
-                  <Text className="text-green-600 font-bold text-lg">{ride.price}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
+        {/* Travelya Brand Section */}
+        <View className="mt-6 mb-6">
+          <View className="bg-blue-50 rounded-xl p-6 border border-blue-200">
+            <View className="items-center">
+              <Ionicons name="car-sport" size={48} color="#3B82F6" />
+              <Text className="text-2xl font-bold text-blue-800 mt-3">Travelya</Text>
+              <Text className="text-blue-600 text-center mt-2">
+                आपकी सुरक्षित और आरामदायक यात्रा का विश्वसनीय साथी
+              </Text>
+              <Text className="text-gray-600 text-sm text-center mt-3">
+                हमारे साथ अपनी यात्रा का आनंद लें - सुरक्षित, तेज़ और विश्वसनीय
+              </Text>
+            </View>
           </View>
         </View>
 
-        {/* Promo Banner */}
-        <View className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl p-5 mb-6">
-          <Text className="text-white text-lg font-bold mb-2">Get 20% off your next ride!</Text>
-          <Text className="text-blue-100 mb-3">Use code: RIDE20</Text>
-          <TouchableOpacity className="bg-white rounded-lg px-4 py-2 self-start">
-            <Text className="text-blue-600 font-semibold">Apply Now</Text>
-          </TouchableOpacity>
+        {/* Features */}
+        <View className="mb-6">
+          <Text className="text-xl font-bold text-gray-800 mb-4">Why Choose Travelya?</Text>
+          <View className="space-y-3">
+            {[
+              { icon: 'shield-checkmark', text: '100% Safe & Secure Rides', color: '#10B981' },
+              { icon: 'time', text: 'Quick Pickup & Drop', color: '#F59E0B' },
+              { icon: 'cash', text: 'Affordable Prices', color: '#EF4444' },
+              { icon: 'star', text: 'Verified Drivers', color: '#8B5CF6' },
+            ].map((feature, index) => (
+              <View key={index} className="bg-white rounded-xl p-4 flex-row items-center shadow-sm">
+                <View 
+                  className="w-10 h-10 rounded-full items-center justify-center mr-3"
+                  style={{ backgroundColor: feature.color + '20' }}
+                >
+                  <Ionicons name={feature.icon as any} size={20} color={feature.color} />
+                </View>
+                <Text className="text-gray-800 font-medium flex-1">{feature.text}</Text>
+              </View>
+            ))}
+          </View>
         </View>
       </ScrollView>
 

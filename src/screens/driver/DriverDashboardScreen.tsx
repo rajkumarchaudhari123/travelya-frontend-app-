@@ -126,31 +126,7 @@ export default function DriverDashboardScreen() {
       </View>
 
       <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
-        {/* Quick Stats */}
-        <View className="mt-6">
-          <Text className="text-xl font-bold text-gray-800 mb-4">Today's Summary</Text>
-          <View className="flex-row flex-wrap justify-between">
-            {quickStats.map((stat, index) => (
-              <View
-                key={index}
-                className="w-[48%] bg-white rounded-xl p-4 mb-4 shadow-sm"
-              >
-                <View className="flex-row items-center justify-between">
-                  <View>
-                    <Text className="text-2xl font-bold text-gray-800">{stat.value}</Text>
-                    <Text className="text-gray-600 text-sm mt-1">{stat.title}</Text>
-                  </View>
-                  <View 
-                    className="w-10 h-10 rounded-full items-center justify-center"
-                    style={{ backgroundColor: stat.color + '20' }}
-                  >
-                    <Ionicons name={stat.icon as any} size={20} color={stat.color} />
-                  </View>
-                </View>
-              </View>
-            ))}
-          </View>
-        </View>
+        
 
         {/* Quick Actions */}
         <View className="mt-4 mb-6">
@@ -182,13 +158,7 @@ export default function DriverDashboardScreen() {
           </View>
         </View>
 
-        {/* Welcome Message */}
-        <View className="bg-blue-50 rounded-xl p-5 mb-6 border border-blue-200">
-          <Text className="text-blue-800 font-bold mb-2">🚗 Welcome to Driver App!</Text>
-          <Text className="text-blue-700">
-            Go online to start receiving ride requests and earn money. Make sure your documents are verified.
-          </Text>
-        </View>
+      
       </ScrollView>
     </View>
   );

@@ -45,7 +45,7 @@ interface RideRequest {
 export default function DriverNotificationScreen() {
     const navigation = useNavigation<NavigationProp>();
     const route = useRoute();
-    
+
     const [notificationVisible, setNotificationVisible] = useState(false);
     const [currentRideRequest, setCurrentRideRequest] = useState<RideRequest | null>(null);
     const [slideAnim] = useState(new Animated.Value(1000));
@@ -53,7 +53,7 @@ export default function DriverNotificationScreen() {
     const [accepting, setAccepting] = useState(false);
     const [loading, setLoading] = useState(false);
     const [isOnline, setIsOnline] = useState(false);
-    
+
     const [currentDriver, setCurrentDriver] = useState<{
         id: string;
         fullName: string;
@@ -96,7 +96,7 @@ export default function DriverNotificationScreen() {
 
             try {
                 setLoading(true);
-                const response = await api.get('/api/driver-notifications/pending-rides');
+                const response = await api.get(`/api/driver-notifications/pending-rides?driverId=${currentDriver.id}`);
 
                 if (response.data?.success && response.data.data?.length > 0 && !notificationVisible) {
                     const ride = response.data.data[0];
@@ -185,20 +185,29 @@ export default function DriverNotificationScreen() {
                 bookingId: currentRideRequest.bookingId,
                 driverId: currentDriver.id,
                 driverName: currentDriver.fullName,
+                driverPhone: currentDriver.phone,
+                vehicleNumber: currentDriver.vehicleNumber,
                 status: 'accepted',
             });
 
             if (response.data?.success) {
-                hideNotification();
-                navigation.navigate('DriverRideInProgress', {
-                    bookingId: currentRideRequest.bookingId,
-                    fromLocation: currentRideRequest.fromLocation,
-                    toLocation: currentRideRequest.toLocation,
-                    price: currentRideRequest.price.toString(),
-                    distance: currentRideRequest.distance.toString(),
-                    customerName: currentRideRequest.customerName,
-                    customerPhone: currentRideRequest.customerPhone,
-                });
+                Alert.alert('Success', 'Ride accepted successfully!', [
+                    {
+                        text: 'OK',
+                        onPress: () => {
+                            hideNotification();
+                            navigation.navigate('DriverRideInProgress', {
+                                bookingId: currentRideRequest.bookingId,
+                                fromLocation: currentRideRequest.fromLocation,
+                                toLocation: currentRideRequest.toLocation,
+                                price: currentRideRequest.price.toString(),
+                                distance: currentRideRequest.distance.toString(),
+                                customerName: currentRideRequest.customerName,
+                                customerPhone: currentRideRequest.customerPhone,
+                            });
+                        }
+                    }
+                ]);
             } else {
                 throw new Error(response.data?.message || 'Failed to accept ride');
             }
@@ -261,6 +270,7 @@ export default function DriverNotificationScreen() {
                         <Text className="text-blue-800 font-semibold text-center">Driver Information</Text>
                         <View className="mt-2 space-y-1">
                             <Text className="text-blue-700">Name: {currentDriver.fullName}</Text>
+                            <Text className="text-blue-700">Phone: {currentDriver.phone}</Text>
                             <Text className="text-blue-700">Vehicle: {currentDriver.vehicleNumber}</Text>
                         </View>
                     </View>
@@ -270,8 +280,8 @@ export default function DriverNotificationScreen() {
                 <Pressable
                     onPress={toggleOnlineStatus}
                     className={`mt-6 rounded-xl px-8 py-4 ${currentDriver
-                            ? (isOnline ? 'bg-red-500' : 'bg-green-500')
-                            : 'bg-gray-400'
+                        ? (isOnline ? 'bg-red-500' : 'bg-green-500')
+                        : 'bg-gray-400'
                         }`}
                     disabled={!currentDriver}
                 >
@@ -293,7 +303,7 @@ export default function DriverNotificationScreen() {
             <Modal visible={notificationVisible} transparent animationType="none">
                 <View className="flex-1 bg-black/50 justify-end">
                     <Animated.View style={{ transform: [{ translateY: slideAnim }] }} className="bg-white rounded-t-3xl">
-                        
+
                         {/* Header */}
                         <View className="bg-green-600 rounded-t-3xl p-4">
                             <View className="flex-row justify-between items-center">

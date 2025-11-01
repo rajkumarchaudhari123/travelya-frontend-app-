@@ -1,8 +1,17 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import { signInWithEmailAndPassword } from 'firebase/auth';  // Import Firebase auth
-import { auth } from '../../lib/firebase'; // Import the Firebase auth instance
-import Button from '../../components/common/Button';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform
+} from 'react-native';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../../lib/firebase';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { AuthStackParamList } from '../../navigation/RootNavigator';
 
@@ -20,11 +29,8 @@ export default function LoginScreen({ navigation }: Props) {
 
     try {
       setLoading(true);
-      // Firebase email/password login
       await signInWithEmailAndPassword(auth, email, password);
-      
-      // On successful login, navigate to RoleSelectionScreen
-      navigation.replace('RoleSelection'); // Navigate to RoleSelection
+      navigation.replace('RoleSelection');
     } catch (e: any) {
       console.error('Login with email failed:', e);
       Alert.alert('Login failed', e?.message ?? 'Please try again.');
@@ -34,84 +40,82 @@ export default function LoginScreen({ navigation }: Props) {
   };
 
   return (
-    <View style={s.container}>
-      <Text style={s.title}>Welcome back</Text>
-      <Text style={s.subtitle}>Login with your email and password</Text>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      className="flex-1 bg-white"
+    >
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1 }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View className="flex-1 px-6 justify-center">
+          {/* Header Section */}
+          <View className="items-center mb-8">
+            <Text className="text-black text-3xl md:text-4xl font-bold text-center mb-3">
+              Travelya
+            </Text>
+            <Text className="text-gray-500 text-base md:text-lg text-center">
+              Login with your email and password
+            </Text>
+          </View>
 
-      <Text style={s.label}>Email</Text>
-      <TextInput
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        style={s.input}
-        keyboardType="email-address"
-        autoComplete="email"
-        textContentType="emailAddress"
-      />
+          {/* Form Section */}
+          <View className="w-full max-w-md mx-auto">
+            <Text className="text-black font-semibold mb-2 text-base md:text-lg">Email</Text>
+            <TextInput
+              placeholder="Email"
+              placeholderTextColor="#9CA3AF"
+              value={email}
+              onChangeText={setEmail}
+              className="w-full border border-gray-300 p-4 rounded-xl mb-4 text-base md:text-lg bg-white"
+              keyboardType="email-address"
+              autoComplete="email"
+              textContentType="emailAddress"
+              autoCapitalize="none"
+            />
 
-      <Text style={s.label}>Password</Text>
-      <TextInput
-        placeholder="Password"
-        value={password}
-        onChangeText={setPassword}
-        style={s.input}
-        secureTextEntry
-        autoComplete="password"
-        textContentType="password"
-      />
+            <Text className="text-black font-semibold mb-2 text-base md:text-lg">Password</Text>
+            <TextInput
+              placeholder="Password"
+              placeholderTextColor="#9CA3AF"
+              value={password}
+              onChangeText={setPassword}
+              className="w-full border border-gray-300 p-4 rounded-xl mb-6 text-base md:text-lg bg-white"
+              secureTextEntry
+              autoComplete="password"
+              textContentType="password"
+              autoCapitalize="none"
+            />
 
-      <Button 
-        label={loading ? 'Logging in…' : 'Login'} 
-        onPress={onLoginSubmit} 
-        disabled={loading} 
-      />
-      
-      {loading && <ActivityIndicator style={{ marginTop: 10 }} />}
+            {/* Login Button */}
+            <TouchableOpacity
+              onPress={onLoginSubmit}
+              disabled={loading}
+              className="w-full bg-blue-500 py-4 rounded-xl items-center justify-center mb-4"
+            >
+              <Text className="text-black text-base md:text-lg font-semibold">
+                {loading ? 'Logging in…' : 'Login'}
+              </Text>
+            </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => navigation.navigate('Signup')} style={{ marginTop: 16 }}>
-        <Text style={s.link}>New here? Create account</Text>
-      </TouchableOpacity>
-    </View>
+            {loading && <ActivityIndicator size="large" className="mt-4" />}
+
+            {/* Signup Link */}
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Signup')}
+              className="mt-6"
+            >
+              <Text className="text-blue-600 text-center text-base md:text-lg font-medium">
+                New here? Create account
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Spacer for small screens */}
+          <View className="h-10" />
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
-
-const s = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    padding: 16, 
-    justifyContent: 'center', 
-    gap: 12 
-  },
-  title: { 
-    fontSize: 24, 
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: 8
-  },
-  subtitle: { 
-    color: '#6b7280', 
-    marginBottom: 20,
-    textAlign: 'center',
-    fontSize: 16
-  },
-  label: { 
-    fontWeight: '600', 
-    marginBottom: 8,
-    fontSize: 16
-  },
-  input: { 
-    borderWidth: 1, 
-    borderColor: '#e5e7eb', 
-    padding: 16, 
-    borderRadius: 12, 
-    marginBottom: 16,
-    fontSize: 16,
-    backgroundColor: '#fff'
-  },
-  link: { 
-    color: '#2563eb',
-    textAlign: 'center',
-    fontSize: 16,
-    fontWeight: '500'
-  },
-});
