@@ -13,20 +13,20 @@
     },
     "types": [
       "nativewind/types",
-      "react",
+      "react", 
       "react-native"
     ],
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "noEmit": true,
     "isolatedModules": true,
-    "lib": ["ES2015", "DOM", "ES6"],
-    "target": "ES2015",
+    "lib": ["ES2017", "DOM", "ESNext"],
+    "target": "ES2017",
     "module": "ES2015"
   },
   "include": [
     "**/*.ts",
-    "**/*.tsx",
+    "**/*.tsx", 
     "**/*.d.ts",
     "nativewind-env.d.ts",
     "index.js"

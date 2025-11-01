@@ -132,12 +132,42 @@ const DriverRegisterScreen = () => {
 
       console.log("Submitting driver registration:", payload);
 
-      const response = await api.post("/api/driver/register", payload, {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        timeout: 30000, // 30 seconds timeout
+      const formData = new FormData();
+
+      Object.entries(form).forEach(([key, value]: [string, any]) => {
+        if (value) {
+          if (
+            key === "idFront" ||
+            key === "idBack" ||
+            key === "licenseDoc" ||
+            key === "rcDoc" ||
+            key === "selfie"
+          ) {
+            formData.append(
+              key,
+              {
+                uri: value,
+                type: "image/jpeg",
+                name: `${key}.jpg`,
+              } as any // 👈 fix for TypeScript
+            );
+          } else {
+            formData.append(key, value);
+          }
+        }
       });
+
+      formData.append("journeyType", JSON.stringify(journeyType));
+      formData.append("fromCity", fromCity.trim());
+      formData.append("toCity", toCity.trim());
+
+      const response = await api.post("/api/driver/register", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        timeout: 30000,
+      });
+
 
       const result = response.data;
       console.log("Driver Registration Response:", result);
