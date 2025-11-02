@@ -1,0 +1,3 @@
+export const NOTIFICATION_TIMEOUT = 15;
+export const POLLING_INTERVAL = 5000;
+export const VIBRATION_PATTERN = [0, 500, 200, 500];
