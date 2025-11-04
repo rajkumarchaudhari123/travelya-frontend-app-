@@ -18,6 +18,8 @@ export interface DriverInfo {
   phone: string;
   vehicleNumber: string;
   rating: string;
+   fullName?: string;
+  email?: string;
 }
 
 export interface BookingData {
@@ -29,6 +31,8 @@ export interface BookingData {
   distance: string;
   driverId?: string;
   driverName?: string;
+   driverPhone?: string;
+  driverVehicle?: string;
   driver?: DriverInfo;
   status: string;
 }

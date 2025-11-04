@@ -4,18 +4,18 @@ import { Dimensions } from 'react-native';
 export const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 export const LOCATIONIQ_KEY = 'pk.4e99c2bb6538458479e6e356415d31cf';
+export const RATE_PER_KM = 20;
 
 // ==================== DRIVER NOTIFICATION CONSTANTS ====================
 export const NOTIFICATION_TIMEOUT = 15;
 export const POLLING_INTERVAL = 5000;
-export const DRIVER_TRACKING_INTERVAL = 5000; // ✅ Yeh add karo
-export const TRACKING_INTERVAL = 5000; // ✅ Yeh bhi add karo (same value)
+export const DRIVER_TRACKING_INTERVAL = 5000;
+export const TRACKING_INTERVAL = 5000;
 export const VIBRATION_PATTERN = [0, 500, 200, 500] as number[];
 
 // ==================== BOOKING SCREEN CONSTANTS ====================
 export const BOOKING_POLLING_INTERVAL = 3000;
 export const INITIAL_ETA = '5-10 min';
-export const RATE_PER_KM = 20;
 
 // ==================== VEHICLE CONSTANTS ====================
 export const VEHICLE_ICONS: { [key: string]: string } = {

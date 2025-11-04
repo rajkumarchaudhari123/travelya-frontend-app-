@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  ScrollView, 
-  Alert, 
-  Animated, 
-  Modal, 
-  TouchableOpacity, 
+import {
+  View,
+  ScrollView,
+  Alert,
+  Animated,
+  Modal,
+  TouchableOpacity,
   Linking,
-  Text // ✅ Text import add karo
+  Text
 } from 'react-native';
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Ionicons } from '@expo/vector-icons'; // ✅ Ionicons import add karo
+import { Ionicons } from '@expo/vector-icons';
 
 import { useBookingData } from '@/hooks/useBookingData';
 import { useLocationTracking } from '@/hooks/useLocationTracking';
@@ -24,8 +24,8 @@ import { DriverInfoCard } from '@/components/Booking/DriverInfoCard';
 import { BookingActions } from '@/components/Booking/BookingActions';
 import { LoadingScreen } from '@/components/common/LoadingScreen';
 import { ErrorScreen } from '@/components/common/ErrorScreen';
-import { RootStackParamList, BookingStatus } from '@/types/booking.types';
-import { 
+import { RootStackParamList, BookingStatus, DriverInfo } from '@/types/booking.types';
+import {
   BOOKING_POLLING_INTERVAL,
   INITIAL_ETA,
   BOOKING_STATUS,
@@ -35,19 +35,23 @@ import api from '@/api/axios';
 
 type BookingScreenRouteProp = RouteProp<RootStackParamList, 'BookingScreen'>;
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'BookingScreen'>;
-type DestinationNavigationProp = NativeStackNavigationProp<RootStackParamList, 'DestinationSearch'>; // ✅ Alias create karo
+type DestinationNavigationProp = NativeStackNavigationProp<RootStackParamList, 'DestinationSearch'>;
 
 export default function BookingScreen() {
   const route = useRoute<BookingScreenRouteProp>();
+  const { bookingId } = route.params || {};
+
   const navigation = useNavigation<NavigationProp>();
-  const destinationNavigation = useNavigation<DestinationNavigationProp>(); // ✅ Alias use karo
-  const { bookingId } = route.params;
+  const destinationNavigation = useNavigation<DestinationNavigationProp>();
 
   const [bookingStatus, setBookingStatus] = useState<BookingStatus>(BOOKING_STATUS.CONFIRMED);
   const [progress] = useState(new Animated.Value(0));
   const [isMapExpanded, setIsMapExpanded] = useState(false);
 
-  const { bookingData, loading } = useBookingData(bookingId);
+  // Add validation for bookingId
+  const validatedBookingId = bookingId || '';
+
+  const { bookingData, loading } = useBookingData(validatedBookingId);
   const { userLocation, mapRegion } = useLocationTracking();
   const { driverInfo, driverLocation, distanceToDriver, liveEta } = useDriverTracking(
     bookingData,
@@ -55,6 +59,12 @@ export default function BookingScreen() {
     bookingStatus,
     setBookingStatus
   );
+
+  // Log the bookingId for debugging
+  useEffect(() => {
+    console.log('📱 BookingScreen mounted with bookingId:', bookingId);
+    console.log('🔍 Validated bookingId:', validatedBookingId);
+  }, [bookingId, validatedBookingId]);
 
   useEffect(() => {
     if (bookingStatus === BOOKING_STATUS.DRIVER_ASSIGNED) {
@@ -65,7 +75,49 @@ export default function BookingScreen() {
     }
   }, [bookingStatus]);
 
+  // Calculate effective driver info - create from individual fields
+// BookingScreen.tsx में
+const effectiveDriverInfo: DriverInfo | null = React.useMemo(() => {
+  console.log('🔍 Booking Data for driver:', bookingData);
+  
+  // Priority 1: Use driver object from database relation
+  if (bookingData?.driver) {
+    console.log('✅ Using driver from database relation:', bookingData.driver);
+    return {
+      id: bookingData.driver.id,
+      name: bookingData.driver.fullName || bookingData.driver.name,
+      phone: bookingData.driver.phone,
+      vehicleNumber: bookingData.driver.vehicleNumber,
+      rating: bookingData.driver.rating || '4.8'
+    };
+  }
+  
+  // Priority 2: Use individual driver fields
+  if (bookingData?.driverName) {
+    console.log('📱 Using individual driver fields:', bookingData.driverName);
+    return {
+      id: bookingData.driverId || `driver-${Date.now()}`,
+      name: bookingData.driverName,
+      phone: bookingData.driverPhone || '+911280012913',
+      vehicleNumber: bookingData.driverVehicle || 'VH-219954',
+      rating: '4.8'
+    };
+  }
+  
+  return driverInfo;
+}, [bookingData, driverInfo]);
+
+  // Debug useEffect
+  useEffect(() => {
+    console.log('🎯 Effective Driver Info:', effectiveDriverInfo);
+  }, [effectiveDriverInfo]);
+
   const handleCancelBooking = async () => {
+    if (!validatedBookingId) {
+      Alert.alert('Error', 'Invalid booking ID');
+      return;
+    }
+
     Alert.alert(
       'Cancel Booking',
       'Are you sure you want to cancel this booking?',
@@ -75,8 +127,8 @@ export default function BookingScreen() {
           text: 'Yes',
           onPress: async () => {
             try {
-              console.log('❌ Cancelling booking:', bookingId);
-              const response = await api.post(`${API_ENDPOINTS.BOOKINGS.CANCEL_BOOKING}/${bookingId}`);
+              console.log('❌ Cancelling booking:', validatedBookingId);
+              const response = await api.post(`${API_ENDPOINTS.BOOKINGS.CANCEL_BOOKING}/${validatedBookingId}`);
 
               if (response.data.success) {
                 Alert.alert('Booking Cancelled', 'Your booking has been cancelled successfully.');
@@ -96,15 +148,15 @@ export default function BookingScreen() {
   };
 
   const handleContactDriver = () => {
-    if (driverInfo?.phone && driverInfo.phone !== 'Not available') {
+    if (effectiveDriverInfo?.phone && effectiveDriverInfo.phone !== 'Not available') {
       Alert.alert(
         'Contact Driver',
-        `Driver: ${driverInfo.name}\nVehicle: ${driverInfo.vehicleNumber}\n\nCall ${driverInfo.phone}?`,
+        `Driver: ${effectiveDriverInfo.name}\nVehicle: ${effectiveDriverInfo.vehicleNumber}\n\nCall ${effectiveDriverInfo.phone}?`,
         [
           {
             text: 'Call',
             onPress: () => {
-              Linking.openURL(`tel:${driverInfo.phone}`)
+              Linking.openURL(`tel:${effectiveDriverInfo.phone}`)
                 .catch(() => Alert.alert('Error', 'Cannot make call'));
             }
           },
@@ -124,12 +176,22 @@ export default function BookingScreen() {
     setIsMapExpanded(!isMapExpanded);
   };
 
+  // Show error if no bookingId
+  if (!bookingId) {
+    return (
+      <ErrorScreen 
+        navigation={destinationNavigation} 
+        message="No booking ID provided" 
+      />
+    );
+  }
+
   if (loading) {
     return <LoadingScreen message="Loading booking details..." />;
   }
 
   if (!bookingData) {
-    return <ErrorScreen navigation={destinationNavigation} message="Booking not found" />; // ✅ Alias use karo
+    return <ErrorScreen navigation={destinationNavigation} message="Booking not found" />;
   }
 
   const { vehicleType, fromLocation, toLocation, price, distance } = bookingData;
@@ -138,8 +200,8 @@ export default function BookingScreen() {
     <View className="flex-1 bg-gray-50">
       {/* Header with Gradient */}
       <BookingHeader
-        navigation={destinationNavigation} // ✅ Alias use karo
-        bookingId={bookingId}
+        navigation={destinationNavigation}
+        bookingId={validatedBookingId}
         bookingStatus={bookingStatus}
         progress={progress}
       />
@@ -152,7 +214,7 @@ export default function BookingScreen() {
             <View className="p-4 border-b border-gray-100">
               <Text className="font-bold text-gray-800 text-lg">Live Tracking</Text>
               <Text className="text-gray-500 text-sm">
-                {driverInfo ? 'Real-time driver location' : 'Waiting for driver assignment'}
+                {effectiveDriverInfo ? 'Real-time driver location' : 'Waiting for driver assignment'}
               </Text>
             </View>
 
@@ -162,7 +224,7 @@ export default function BookingScreen() {
                 mapRegion={mapRegion}
                 userLocation={userLocation}
                 driverLocation={driverLocation}
-                driverInfo={driverInfo}
+                driverInfo={effectiveDriverInfo}
                 distanceToDriver={distanceToDriver}
                 liveEta={liveEta}
                 bookingStatus={bookingStatus}
@@ -170,7 +232,7 @@ export default function BookingScreen() {
               />
 
               {/* Click to expand instruction */}
-              {driverInfo && (
+              {effectiveDriverInfo && (
                 <View className="absolute top-2 left-2 bg-black/70 rounded-lg px-2 py-1">
                   <Text className="text-white text-xs">Tap map to expand</Text>
                 </View>
@@ -184,7 +246,7 @@ export default function BookingScreen() {
           vehicleType={vehicleType}
           price={price}
           distance={distance}
-          driverInfo={driverInfo}
+          driverInfo={effectiveDriverInfo}
           liveEta={liveEta}
           distanceToDriver={distanceToDriver}
         />
@@ -197,7 +259,7 @@ export default function BookingScreen() {
 
         {/* Driver Info Card */}
         <DriverInfoCard
-          driverInfo={driverInfo}
+          driverInfo={effectiveDriverInfo}
           distanceToDriver={distanceToDriver}
           liveEta={liveEta}
           onContactDriver={handleContactDriver}
@@ -223,7 +285,7 @@ export default function BookingScreen() {
             mapRegion={mapRegion}
             userLocation={userLocation}
             driverLocation={driverLocation}
-            driverInfo={driverInfo}
+            driverInfo={effectiveDriverInfo}
             distanceToDriver={distanceToDriver}
             liveEta={liveEta}
             bookingStatus={bookingStatus}
@@ -239,7 +301,7 @@ export default function BookingScreen() {
           </TouchableOpacity>
 
           {/* Map Instructions */}
-          {driverInfo && (
+          {effectiveDriverInfo && (
             <View className="absolute bottom-20 left-4 right-4 bg-white/90 rounded-lg p-4">
               <Text className="font-bold text-gray-800 text-lg mb-2">Live Driver Tracking</Text>
               <View className="flex-row justify-between">

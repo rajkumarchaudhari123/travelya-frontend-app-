@@ -3,6 +3,7 @@ import * as Location from 'expo-location';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useState, useMemo } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Alert,
   Modal,
@@ -26,6 +27,14 @@ type RootStackParamList = {
     price: string;
     distance: string;
     bookingId: string;
+    // optional driver fields (backend se aa sakte hain)
+    driverName?: string;
+    driverPhone?: string;
+    driverVehicle?: string;
+    // optional rider fields (agar zaroorat ho)
+    customerName?: string;
+    customerPhone?: string;
+    customerPhoto?: string;
   };
 };
 
@@ -56,7 +65,7 @@ const RATE_PER_KM = 20;
 
 // Initial Vehicles Data
 const initialVehicles: VehicleType[] = [
-  { id: '1', name: 'Auto', icon: 'bicycle', price: 0, seats: '3 Seats', time: '5-10 min', color: '#EF4444', selected: false },
+  { id: '1', name: 'Auto', icon: 'car', price: 0, seats: '3 Seats', time: '5-10 min', color: '#EF4444', selected: false },
   { id: '2', name: 'Mini Car', icon: 'car-sport', price: 0, seats: '4 Seats', time: '5-10 min', color: '#3B82F6', selected: false },
   { id: '3', name: 'Sedan', icon: 'car', price: 0, seats: '4 Seats', time: '5-10 min', color: '#10B981', selected: false },
   { id: '4', name: 'SUV', icon: 'car-sport', price: 0, seats: '6 Seats', time: '5-10 min', color: '#F59E0B', selected: false },
@@ -170,10 +179,10 @@ export default function DestinationSearchScreen() {
       if (locationData?.display_name) {
         setPickup(locationData.display_name);
         setSelectedFromLocation({
-          place_id: locationData.place_id,
+          place_id: locationData.place_id || String(Math.random()),
           display_name: locationData.display_name,
-          lat: locationData.lat,
-          lon: locationData.lon
+          lat: locationData.lat || String(location.coords.latitude),
+          lon: locationData.lon || String(location.coords.longitude)
         });
       }
     } catch (error: any) {
@@ -315,55 +324,84 @@ export default function DestinationSearchScreen() {
     setSelectedVehicle({ ...vehicle, price: parseFloat(calculatedFare.toFixed(2)) });
   };
 
-  const handleBookRide = async () => {
-    if (!pickup || !drop || !selectedVehicle || !distance || selectedVehicle.price === 0) {
-      Alert.alert('Error', 'Please complete all booking details and wait for price calculation');
+ const handleBookRide = async () => {
+  if (!pickup || !drop || !selectedVehicle || !distance || selectedVehicle.price === 0) {
+    Alert.alert('Error', 'Please complete all booking details and wait for price calculation');
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    // ✅ Rider data get करें AsyncStorage से
+    const riderDataString = await AsyncStorage.getItem('riderData');
+    const riderData = riderDataString ? JSON.parse(riderDataString) : null;
+
+    if (!riderData) {
+      Alert.alert("Error", "Please complete rider registration first");
+      setLoading(false);
       return;
     }
 
-    setLoading(true);
+    const bookingData = {
+      vehicleType: selectedVehicle.name,
+      fromLocation: pickup,
+      toLocation: drop,
+      price: Number(selectedVehicle.price),
+      distance: Number(distance),
+      fromLat: selectedFromLocation?.lat || '0',
+      fromLon: selectedFromLocation?.lon || '0',
+      toLat: selectedToLocation?.lat || '0',
+      toLon: selectedToLocation?.lon || '0',
+      customerName: riderData.fullName,    // ✅ Actual customer name
+      customerPhone: riderData.phone       // ✅ Actual customer phone
+    };
 
-    try {
-      const bookingData = {
-        vehicleType: selectedVehicle.name,
-        fromLocation: pickup,
-        toLocation: drop,
-        price: Number(selectedVehicle.price),
-        distance: Number(distance),
-        fromLat: selectedFromLocation?.lat || '0',
-        fromLon: selectedFromLocation?.lon || '0',
-        toLat: selectedToLocation?.lat || '0',
-        toLon: selectedToLocation?.lon || '0',
-      };
+    console.log('🚀 Sending booking data:', bookingData);
 
-      const response = await api.post('/api/destination-search/book-ride', bookingData);
-
-      if (response.data?.success) {
-        Alert.alert(
-          'Booking Confirmed!',
-          `Your ${selectedVehicle.name} is booked!\nFrom: ${pickup}\nTo: ${drop}\nDistance: ${distance.toFixed(2)} km\nTotal Fare: ₹${selectedVehicle.price.toFixed(2)}`
-        );
-
-        navigation.navigate('BookingScreen', {
-          vehicleType: selectedVehicle.name,
-          fromLocation: pickup,
-          toLocation: drop,
-          price: selectedVehicle.price.toFixed(2),
-          distance: distance.toFixed(2),
-          bookingId: response.data.data.id
-        });
-        setShowDropdown(false);
-      } else {
-        throw new Error(response.data?.message || 'Booking failed');
+    const response = await api.post('/api/destination-search/book-ride', bookingData);
+    
+    if (response.data?.success) {
+      const resData = response.data.data;
+      const bookingId = resData.bookingId || resData.id || resData.booking?.id;
+      
+      if (!bookingId) {
+        throw new Error('No booking ID received from server');
       }
-    } catch (error: any) {
-      console.error('Booking error:', error.response?.data);
-      Alert.alert('Booking Failed', error.response?.data?.message || 'Please try again');
-    } finally {
-      setLoading(false);
-    }
-  };
 
+      console.log('✅ Booking successful, navigating with bookingId:', bookingId);
+
+      Alert.alert(
+        'Booking Confirmed!',
+        `Your ${selectedVehicle.name} is booked!\nFrom: ${pickup}\nTo: ${drop}\nDistance: ${distance.toFixed(2)} km\nTotal Fare: ₹${selectedVehicle.price.toFixed(2)}`,
+        [{ text: 'OK', onPress: () => {
+          // Navigate after user presses OK
+          navigation.navigate('BookingScreen', {
+            vehicleType: selectedVehicle.name,
+            fromLocation: pickup,
+            toLocation: drop,
+            price: selectedVehicle.price.toFixed(2),
+            distance: distance.toFixed(2),
+            bookingId: bookingId,
+            driverName: resData.driverName || resData.driver?.name,
+            driverPhone: resData.driverPhone || resData.driver?.phone,
+            driverVehicle: resData.driverVehicle || resData.driver?.vehicleNumber,
+            customerName: riderData.fullName,    // ✅ Actual customer name
+            customerPhone: riderData.phone       // ✅ Actual customer phone
+          });
+          setShowDropdown(false);
+        }}]
+      );
+    } else {
+      throw new Error(response.data?.message || 'Booking failed');
+    }
+  } catch (error: any) {
+    console.error('❌ Booking error:', error.message);
+    Alert.alert('Error', error.message || 'Failed to book ride. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
   // Render Functions
   const renderSuggestions = (suggestions: SuggestionItem[], onSelect: (item: SuggestionItem) => void) => (
     <View className="bg-white border border-gray-300 rounded-lg mt-1 max-h-48 z-50 shadow-lg">
@@ -386,8 +424,9 @@ export default function DestinationSearchScreen() {
   const renderVehicleItem = (vehicle: VehicleType) => (
     <Pressable
       key={vehicle.id}
-      className={`border-2 rounded-xl m-1 flex-1 ${responsiveStyles.vehicleMinWidth} ${responsiveStyles.vehiclePadding} ${vehicle.selected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'
-        } active:opacity-70`}
+      className={`border-2 rounded-xl m-1 flex-1 ${responsiveStyles.vehicleMinWidth} ${responsiveStyles.vehiclePadding} ${
+        vehicle.selected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'
+      } active:opacity-70`}
       onPress={() => handleVehicleSelect(vehicle)}
     >
       <View className="items-center">
@@ -421,16 +460,25 @@ export default function DestinationSearchScreen() {
           <View className="pl-3">
             <Ionicons name="car-outline" size={responsiveStyles.largeIconSize} color="#374151" />
           </View>
-          <Text className={`bg-gray-100 rounded-lg flex-1 ml-3 my-3 text-gray-600 ${responsiveStyles.inputPadding}`}>
+          <Text className={`flex-1 ml-3 my-3 text-gray-600 ${responsiveStyles.inputTextSize}`}>
             Search Your Destination
           </Text>
         </Pressable>
       </View>
 
-      <Modal visible={showDropdown} transparent animationType="slide" onRequestClose={() => setShowDropdown(false)}>
+      <Modal 
+        visible={showDropdown} 
+        transparent 
+        animationType="slide" 
+        onRequestClose={() => setShowDropdown(false)}
+      >
         <View className="flex-1 bg-black/50 justify-center items-center">
           <View className={`bg-white rounded-2xl ${responsiveStyles.modalWidth} ${responsiveStyles.modalMaxHeight} ${responsiveStyles.modalPadding}`}>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
+            <ScrollView 
+              showsVerticalScrollIndicator={false} 
+              contentContainerStyle={{ flexGrow: 1 }} 
+              keyboardShouldPersistTaps="handled"
+            >
               <Text className={`font-bold text-gray-800 mb-5 text-center ${responsiveStyles.modalTitleSize}`}>
                 Plan Your Ride
               </Text>
@@ -448,7 +496,9 @@ export default function DestinationSearchScreen() {
                     onChangeText={handleFromLocationSearch}
                   />
                 </View>
-                {fromSuggestions.length > 0 && activeField === 'pickup' && renderSuggestions(fromSuggestions, handleSelectFromLocation)}
+                {fromSuggestions.length > 0 && activeField === 'pickup' && 
+                  renderSuggestions(fromSuggestions, handleSelectFromLocation)
+                }
               </View>
 
               {/* Current Location Button */}
@@ -475,7 +525,9 @@ export default function DestinationSearchScreen() {
                     onChangeText={handleToLocationSearch}
                   />
                 </View>
-                {toSuggestions.length > 0 && activeField === 'drop' && renderSuggestions(toSuggestions, handleSelectToLocation)}
+                {toSuggestions.length > 0 && activeField === 'drop' && 
+                  renderSuggestions(toSuggestions, handleSelectToLocation)
+                }
               </View>
 
               {/* Selected Locations & Fare Info */}
@@ -543,8 +595,9 @@ export default function DestinationSearchScreen() {
 
               {/* Action Buttons */}
               <Pressable
-                className={`rounded-xl mt-2 ${responsiveStyles.buttonPadding} ${!pickup || !drop || !selectedVehicle || loading ? 'bg-gray-400' : 'bg-green-600 active:bg-green-700'
-                  }`}
+                className={`rounded-xl mt-2 ${responsiveStyles.buttonPadding} ${
+                  !pickup || !drop || !selectedVehicle || loading ? 'bg-gray-400' : 'bg-green-600 active:bg-green-700'
+                }`}
                 onPress={handleBookRide}
                 disabled={!pickup || !drop || !selectedVehicle || loading}
               >
