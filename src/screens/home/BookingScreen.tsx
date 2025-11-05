@@ -76,36 +76,45 @@ export default function BookingScreen() {
   }, [bookingStatus]);
 
   // Calculate effective driver info - create from individual fields
-// BookingScreen.tsx में
-const effectiveDriverInfo: DriverInfo | null = React.useMemo(() => {
-  console.log('🔍 Booking Data for driver:', bookingData);
-  
-  // Priority 1: Use driver object from database relation
-  if (bookingData?.driver) {
-    console.log('✅ Using driver from database relation:', bookingData.driver);
-    return {
-      id: bookingData.driver.id,
-      name: bookingData.driver.fullName || bookingData.driver.name,
-      phone: bookingData.driver.phone,
-      vehicleNumber: bookingData.driver.vehicleNumber,
-      rating: bookingData.driver.rating || '4.8'
-    };
-  }
-  
-  // Priority 2: Use individual driver fields
-  if (bookingData?.driverName) {
-    console.log('📱 Using individual driver fields:', bookingData.driverName);
-    return {
-      id: bookingData.driverId || `driver-${Date.now()}`,
-      name: bookingData.driverName,
-      phone: bookingData.driverPhone || '+911280012913',
-      vehicleNumber: bookingData.driverVehicle || 'VH-219954',
-      rating: '4.8'
-    };
-  }
-  
-  return driverInfo;
-}, [bookingData, driverInfo]);
+  // BookingScreen.tsx में
+  // BookingScreen.tsx में effectiveDriverInfo fix करें
+  const effectiveDriverInfo: DriverInfo | null = React.useMemo(() => {
+    console.log('🔍 Booking Data for driver:', {
+      hasDriverObject: !!bookingData?.driver,
+      driverObject: bookingData?.driver,
+      hasIndividualFields: !!(bookingData?.driverName || bookingData?.driverPhone),
+      driverName: bookingData?.driverName,
+      driverPhone: bookingData?.driverPhone,
+      fromHook: driverInfo
+    });
+
+    // ✅ PRIORITY 1: Use driver object from relation
+    if (bookingData?.driver) {
+      return {
+        id: bookingData.driver.id,
+        name: bookingData.driver.fullName || bookingData.driver.name,
+        phone: bookingData.driver.phone || "", // ✅ fixed
+        vehicleNumber: bookingData.driver.vehicleNumber,
+        rating: bookingData.driver.rating || "4.8"
+      };
+    }
+
+    // ✅ PRIORITY 2: Use individual driver fields from booking
+    if (bookingData?.driverName && bookingData.driverName !== "Unassigned") {
+      return {
+        id: bookingData.driverId || `driver-${Date.now()}`,
+        name: bookingData.driverName,
+        phone: bookingData.driverPhone || "", // ✅ fixed
+        vehicleNumber: bookingData.driverVehicle || "Not assigned",
+        rating: "4.8"
+      };
+    }
+
+    // ✅ PRIORITY 3: Use driverInfo from hook
+    if (driverInfo) return driverInfo;
+
+    return null;
+  }, [bookingData, driverInfo]);
 
   // Debug useEffect
   useEffect(() => {
@@ -179,9 +188,9 @@ const effectiveDriverInfo: DriverInfo | null = React.useMemo(() => {
   // Show error if no bookingId
   if (!bookingId) {
     return (
-      <ErrorScreen 
-        navigation={destinationNavigation} 
-        message="No booking ID provided" 
+      <ErrorScreen
+        navigation={destinationNavigation}
+        message="No booking ID provided"
       />
     );
   }
