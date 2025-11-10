@@ -1,5 +1,5 @@
 {
-  "extends": "expo/tsconfig.base",
+  "extends": "@tsconfig/expo/tsconfig.base",
   "compilerOptions": {
     "moduleResolution": "bundler",
     "strict": true,
@@ -7,15 +7,9 @@
     "jsxImportSource": "nativewind",
     "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "./src/*"
-      ]
+      "@/*": ["./src/*"]
     },
-    "types": [
-      "nativewind/types",
-      "react", 
-      "react-native"
-    ],
+    "types": ["nativewind/types", "react", "react-native"],
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "noEmit": true,
@@ -26,12 +20,10 @@
   },
   "include": [
     "**/*.ts",
-    "**/*.tsx", 
+    "**/*.tsx",
     "**/*.d.ts",
     "nativewind-env.d.ts",
     "index.js"
   ],
-  "exclude": [
-    "node_modules"
-  ]
+  "exclude": ["node_modules"]
 }
