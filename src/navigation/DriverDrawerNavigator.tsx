@@ -159,17 +159,7 @@ export default function DriverDrawerNavigator() {
           headerTitle: 'Ride Requests'
         }}
       />
-      <Drawer.Screen 
-        name="ActiveRide" 
-        component={DriverRideInProgressScreen}
-        options={{
-          drawerIcon: ({ color, size }) => (
-            <Ionicons name="navigate" size={size} color={color} />
-          ),
-          title: 'Active Ride',
-          headerTitle: 'Active Ride'
-        }}
-      />
+   
       <Drawer.Screen 
         name="Profile" 
         component={ProfileScreen}

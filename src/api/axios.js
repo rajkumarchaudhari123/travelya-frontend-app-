@@ -97,45 +97,33 @@
 
 // api/axios.ts
 // api/axios.ts
+// api/axios.ts
 import axios from "axios";
 import { Platform } from "react-native";
-import Config from "react-native-config";
 
-// ✅ Function to determine the correct API base URL
+// ✅ Use Expo public env variable
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE;
+
+// ✅ Function to determine base URL
 const getBaseURL = () => {
-  const productionURL = "https://travelya-backend-app.onrender.com"; // 🔗 Render backend URL
+  const productionURL = "https://travelya-backend-app.onrender.com"; // 👈 NOTE: /api added here
 
-  // 👉 If running inside Expo & env variable exists
-  if (Config.EXPO_PUBLIC_API_BASE) {
-    console.log("🌐 Using EXPO_PUBLIC_API_BASE:", Config.EXPO_PUBLIC_API_BASE);
-    return Config.EXPO_PUBLIC_API_BASE;
+  if (API_BASE_URL) {
+    console.log("🌐 Using EXPO_PUBLIC_API_BASE:", API_BASE_URL);
+    return API_BASE_URL;
   }
 
-  // 👉 If in development mode
   if (__DEV__) {
-    if (Platform.OS === "android") {
-      const url = "http://10.184.209.195:10000"; // 🔧 Local IP (Android device)
-      console.log("🔧 Using Android Local URL:", url);
-      return url;
-    }
-
-    if (Platform.OS === "ios") {
-      const url = "http://localhost:10000"; // 🔧 iOS local
-      console.log("🔧 Using iOS Local URL:", url);
-      return url;
-    }
-
-    const url = "http://10.184.209.195:10000"; // 🔧 Physical device (LAN)
-    console.log("🔧 Using Physical Device URL:", url);
-    return url;
+    if (Platform.OS === "android") return "http://10.184.209.195:10000/";
+    if (Platform.OS === "ios") return "http://localhost:10000/";
+    return "http://10.184.209.195:10000/api";
   }
 
-  // 👉 In production (APK build)
   console.log("🚀 Using Production URL:", productionURL);
   return productionURL;
 };
 
-// ✅ Create Axios instance
+// ✅ Axios instance
 const api = axios.create({
   baseURL: getBaseURL(),
   timeout: 30000,
@@ -145,24 +133,17 @@ const api = axios.create({
   },
 });
 
-// ✅ Request interceptor (for logging requests)
+// ✅ Interceptors for logging
 api.interceptors.request.use(
   (config) => {
     console.log("📤 Request:", config.method?.toUpperCase(), config.url);
     return config;
   },
-  (error) => {
-    console.error("❌ Request Error:", error.message);
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// ✅ Response interceptor (for error/success handling)
 api.interceptors.response.use(
-  (response) => {
-    console.log("✅ Response:", response.status, response.config.url);
-    return response;
-  },
+  (response) => response,
   (error) => {
     console.error("❌ API Error:", error.message);
     if (error.response) {

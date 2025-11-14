@@ -27,11 +27,9 @@ type RootStackParamList = {
     price: string;
     distance: string;
     bookingId: string;
-    // optional driver fields (backend se aa sakte hain)
     driverName?: string;
     driverPhone?: string;
     driverVehicle?: string;
-    // optional rider fields (agar zaroorat ho)
     customerName?: string;
     customerPhone?: string;
     customerPhoto?: string;

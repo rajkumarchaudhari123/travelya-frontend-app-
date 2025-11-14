@@ -15,7 +15,8 @@ import * as ImagePicker from "expo-image-picker";
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import api from '../../api/axios';
+// import api from '../../api/axios';
+import api from '@/api/axios';
 import { AuthStackParamList } from '@/navigation/RootNavigator';
 
 type RiderRegisterScreenNavigationProp = NativeStackNavigationProp<

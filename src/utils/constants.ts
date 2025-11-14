@@ -124,25 +124,21 @@ export const STATUS_TEXTS: { [key: string]: string } = {
 
 // ==================== API ENDPOINTS ====================
 export const API_ENDPOINTS = {
-  // Driver Endpoints
   DRIVER_NOTIFICATIONS: {
     PENDING_RIDES: '/api/driver-notifications/pending-rides',
     ACCEPT_RIDE: '/api/driver-notifications/accept-ride'
   },
-  
-  // Booking Endpoints
   BOOKINGS: {
     GET_BOOKING: '/api/bookings',
     CANCEL_BOOKING: '/api/bookings/cancel'
   },
-  
-  // Destination Search Endpoints
   DESTINATION_SEARCH: {
     SEARCH: '/api/destination-search/search',
     CALCULATE_FARE: '/api/destination-search/calculate-fare',
     BOOK_RIDE: '/api/destination-search/book-ride'
   }
 };
+
 
 // ==================== RESPONSIVE BREAKPOINTS ====================
 export const BREAKPOINTS = {

@@ -5,7 +5,6 @@ import {
   ScrollView,
   Pressable,
   Switch,
-  StyleSheet,
   ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -44,56 +43,51 @@ const SettingsScreen = () => {
 
   if (loading) {
     return (
-      <View style={styles.center}>
+      <View className="flex-1 justify-center items-center">
         <ActivityIndicator size="large" color="#0072FF" />
       </View>
     );
   }
 
   return (
-    <ScrollView
-      style={[
-        styles.container,
-        { backgroundColor: darkMode ? "#111" : "#f8f8f8" },
-      ]}
-    >
+    <ScrollView className={`flex-1 ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}>
       {/* Gradient Header */}
       <LinearGradient
         colors={["#00C6FF", "#0072FF"]}
-        style={styles.headerContainer}
+        className="py-12 items-center rounded-b-3xl mb-4"
       >
-        <Text style={styles.headerText}>
+        <Text className="text-white text-xl font-bold">
           {role === "rider" ? "Rider Settings" : "Driver Settings"}
         </Text>
       </LinearGradient>
 
       {/* Common Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>General</Text>
+      <View className="bg-white mx-4 p-4 rounded-xl mb-4 shadow-sm shadow-black/10">
+        <Text className="text-base font-semibold text-gray-800 mb-3">General</Text>
 
-        <View style={styles.row}>
-          <Text style={styles.rowText}>Dark Mode</Text>
+        <View className="flex-row justify-between items-center mb-3">
+          <Text className="text-base text-gray-800">Dark Mode</Text>
           <Switch value={darkMode} onValueChange={setDarkMode} />
         </View>
 
-        <View style={styles.row}>
-          <Text style={styles.rowText}>Notifications</Text>
+        <View className="flex-row justify-between items-center mb-1">
+          <Text className="text-base text-gray-800">Notifications</Text>
           <Switch value={notifications} onValueChange={setNotifications} />
         </View>
       </View>
 
       {/* Role-Based Section */}
       {role === "rider" ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Ride Preferences</Text>
+        <View className="bg-white mx-4 p-4 rounded-xl mb-4 shadow-sm shadow-black/10">
+          <Text className="text-base font-semibold text-gray-800 mb-3">Ride Preferences</Text>
           <SettingItem icon="home" label="Saved Addresses" />
           <SettingItem icon="card" label="Payment Methods" />
           <SettingItem icon="time" label="Ride History" />
           <SettingItem icon="location" label="Preferred Pickup Points" />
         </View>
       ) : (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Driver Options</Text>
+        <View className="bg-white mx-4 p-4 rounded-xl mb-4 shadow-sm shadow-black/10">
+          <Text className="text-base font-semibold text-gray-800 mb-3">Driver Options</Text>
           <SettingItem icon="car" label="Vehicle Information" />
           <SettingItem icon="cash" label="Earnings Summary" />
           <SettingItem icon="document-text" label="Uploaded Documents" />
@@ -102,17 +96,15 @@ const SettingsScreen = () => {
       )}
 
       {/* Support Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Support & Help</Text>
+      <View className="bg-white mx-4 p-4 rounded-xl mb-4 shadow-sm shadow-black/10">
+        <Text className="text-base font-semibold text-gray-800 mb-3">Support & Help</Text>
         <SettingItem icon="help-circle" label="Help Center" />
         <SettingItem icon="chatbubbles" label="Contact Support" />
         <SettingItem icon="information-circle" label="App Version 1.0.0" />
 
-        <Pressable onPress={logout} style={styles.logoutButton}>
+        <Pressable onPress={logout} className="flex-row items-center mt-3">
           <Ionicons name="log-out-outline" size={22} color="red" />
-          <Text style={[styles.rowText, { color: "red", marginLeft: 10 }]}>
-            Logout
-          </Text>
+          <Text className="text-red-500 text-base ml-3">Logout</Text>
         </Pressable>
       </View>
     </ScrollView>
@@ -121,62 +113,10 @@ const SettingsScreen = () => {
 
 // ✅ Reusable setting item component
 const SettingItem = ({ icon, label }: { icon: any; label: string }) => (
-  <Pressable style={styles.settingItem}>
+  <Pressable className="flex-row items-center py-2">
     <Ionicons name={icon} size={22} color="#0072FF" />
-    <Text style={styles.rowText}>{label}</Text>
+    <Text className="text-base text-gray-800 ml-3">{label}</Text>
   </Pressable>
 );
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  headerContainer: {
-    paddingVertical: 50,
-    alignItems: "center",
-    borderBottomLeftRadius: 25,
-    borderBottomRightRadius: 25,
-    marginBottom: 15,
-  },
-  headerText: { color: "#fff", fontSize: 22, fontWeight: "700" },
-  section: {
-    backgroundColor: "#fff",
-    padding: 15,
-    marginHorizontal: 15,
-    borderRadius: 15,
-    marginBottom: 15,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 10,
-  },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  rowText: { fontSize: 15, color: "#333" },
-  settingItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-    gap: 10,
-  },
-  logoutButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 10,
-  },
-  center: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-});
 
 export default SettingsScreen;

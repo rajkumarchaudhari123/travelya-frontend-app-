@@ -11,7 +11,8 @@ import {
   Linking,
   Modal,
   TouchableOpacity,
-  ActivityIndicator
+  ActivityIndicator,
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -416,6 +417,7 @@ export default function DriverRideInProgressScreen() {
         // Show route map when ride starts
         if (newStatus === 'STARTED') {
           setShowRouteMap(true);
+          openGoogleMaps(pickupCoords, dropCoords);
         }
         
         if (newStatus === 'COMPLETED') {
@@ -452,6 +454,20 @@ export default function DriverRideInProgressScreen() {
     }
   };
 
+
+  const openGoogleMaps = (from: Coordinate, to: Coordinate) => {
+  const scheme = Platform.select({
+    ios: `comgooglemaps://?saddr=${from.latitude},${from.longitude}&daddr=${to.latitude},${to.longitude}&directionsmode=driving`,
+    android: `google.navigation:q=${to.latitude},${to.longitude}&mode=d`,
+  });
+  const fallback = `https://www.google.com/maps/dir/${from.latitude},${from.longitude}/${to.latitude},${to.longitude}`;
+
+  Linking.canOpenURL(scheme!)
+    .then(supported => supported && Linking.openURL(scheme!))
+    .catch(() => Linking.openURL(fallback));
+};
+
+
   const getNextAction = () => {
     switch (rideStatus) {
       case 'PENDING':
@@ -465,6 +481,7 @@ export default function DriverRideInProgressScreen() {
         return { 
           label: 'Start Ride', 
           action: () => handleUpdateStatus('STARTED'),
+
           color: 'bg-blue-600'
         };
       case 'STARTED':
