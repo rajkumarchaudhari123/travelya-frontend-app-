@@ -15,11 +15,13 @@ import {
   Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { OTPSection } from '@/components/Booking/OTPSection';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
 import io from 'socket.io-client';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '@/api/axios';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -98,6 +100,53 @@ export default function DriverRideInProgressScreen() {
   const socketConnectedRef = useRef<boolean>(false);
   const initialFetchRef = useRef<boolean>(false);
 
+  // ✅ Handle OTP Verification
+  const handleOTPVerified = () => {
+    console.log('✅ OTP Verified - Ride can start');
+    Alert.alert('Success', 'OTP verified! Ride is now starting.');
+    // You can update ride status or show success message
+  };
+
+  // ✅ Ensure Driver ID is properly set
+  useEffect(() => {
+    const ensureDriverId = async () => {
+      try {
+        console.log('🔍 Ensuring driver ID...');
+
+        // Method 1: Check AsyncStorage for driver data
+        const driverData = await AsyncStorage.getItem('driverData');
+        if (driverData) {
+          const parsedData = JSON.parse(driverData);
+          setDriverId(parsedData.id);
+          console.log('✅ Driver ID from storage:', parsedData.id);
+          return;
+        }
+
+        // Method 2: Use driverId from route params
+        if (routeDriverId) {
+          setDriverId(routeDriverId);
+          console.log('✅ Driver ID from route:', routeDriverId);
+          return;
+        }
+
+        // Method 3: Use driverId from ride details
+        if (rideDetails?.driverId) {
+          setDriverId(rideDetails.driverId);
+          console.log('✅ Driver ID from ride details:', rideDetails.driverId);
+          return;
+        }
+
+        console.log('❌ No driver ID found');
+      } catch (error) {
+        console.log('❌ Error ensuring driver ID:', error);
+      }
+    };
+
+    if (rideDetails) {
+      ensureDriverId();
+    }
+  }, [rideDetails, routeDriverId]);
+
   // Fetch ride details from API
   const fetchRideDetails = useCallback(async () => {
     try {
@@ -121,11 +170,6 @@ export default function DriverRideInProgressScreen() {
         if (details.driverId && !driverId) {
           console.log('🚗 Setting driver ID from ride details:', details.driverId);
           setDriverId(details.driverId);
-        }
-        
-        // If driver is assigned, we don't need to look for available drivers
-        if (details.driverName && details.driverPhone) {
-          console.log('✅ Driver already assigned:', details.driverName);
         }
       } else {
         setError('Failed to fetch ride details');
@@ -221,8 +265,6 @@ export default function DriverRideInProgressScreen() {
       if (data.bookingId === bookingId) {
         console.log('🔄 Ride status updated via socket:', data.status);
         setRideStatus(data.status);
-        
-        // Refresh ride details when status changes
         fetchRideDetails();
       }
     };
@@ -309,7 +351,7 @@ export default function DriverRideInProgressScreen() {
           locationSubscriptionRef.current = await Location.watchPositionAsync(
             {
               accuracy: Location.Accuracy.Balanced,
-              timeInterval: 10000, // 10 seconds
+              timeInterval: 10000,
               distanceInterval: 50,
             },
             (newLocation) => {
@@ -399,13 +441,11 @@ export default function DriverRideInProgressScreen() {
     try {
       console.log(`🔄 Updating ride status to: ${newStatus}`);
       
-      // Update via API
       const response = await api.put(`/api/bookings/${bookingId}/status`, { 
         status: newStatus 
       });
       
       if (response.data.success) {
-        // Update via socket
         socket.emit('update_ride_status', {
           bookingId,
           status: newStatus,
@@ -414,7 +454,6 @@ export default function DriverRideInProgressScreen() {
         
         setRideStatus(newStatus);
         
-        // Show route map when ride starts
         if (newStatus === 'STARTED') {
           setShowRouteMap(true);
           openGoogleMaps(pickupCoords, dropCoords);
@@ -454,19 +493,17 @@ export default function DriverRideInProgressScreen() {
     }
   };
 
-
   const openGoogleMaps = (from: Coordinate, to: Coordinate) => {
-  const scheme = Platform.select({
-    ios: `comgooglemaps://?saddr=${from.latitude},${from.longitude}&daddr=${to.latitude},${to.longitude}&directionsmode=driving`,
-    android: `google.navigation:q=${to.latitude},${to.longitude}&mode=d`,
-  });
-  const fallback = `https://www.google.com/maps/dir/${from.latitude},${from.longitude}/${to.latitude},${to.longitude}`;
+    const scheme = Platform.select({
+      ios: `comgooglemaps://?saddr=${from.latitude},${from.longitude}&daddr=${to.latitude},${to.longitude}&directionsmode=driving`,
+      android: `google.navigation:q=${to.latitude},${to.longitude}&mode=d`,
+    });
+    const fallback = `https://www.google.com/maps/dir/${from.latitude},${from.longitude}/${to.latitude},${to.longitude}`;
 
-  Linking.canOpenURL(scheme!)
-    .then(supported => supported && Linking.openURL(scheme!))
-    .catch(() => Linking.openURL(fallback));
-};
-
+    Linking.canOpenURL(scheme!)
+      .then(supported => supported && Linking.openURL(scheme!))
+      .catch(() => Linking.openURL(fallback));
+  };
 
   const getNextAction = () => {
     switch (rideStatus) {
@@ -481,7 +518,6 @@ export default function DriverRideInProgressScreen() {
         return { 
           label: 'Start Ride', 
           action: () => handleUpdateStatus('STARTED'),
-
           color: 'bg-blue-600'
         };
       case 'STARTED':
@@ -559,7 +595,6 @@ export default function DriverRideInProgressScreen() {
       };
     }
     
-    // Default to pickup location if no driver location
     return {
       latitude: pickupCoords.latitude,
       longitude: pickupCoords.longitude,
@@ -789,6 +824,16 @@ export default function DriverRideInProgressScreen() {
           {distanceToRider}
         </Text>
       </View>
+
+      {/* ✅ OTP SECTION ADDED HERE */}
+      <OTPSection
+        bookingId={bookingId}
+        customerName={rideDetails?.customerName || "Customer"}
+        customerPhone={rideDetails?.customerPhone || "N/A"}
+        driverId={driverId}
+        onOTPVerified={handleOTPVerified}
+        isDriver={true} // Always true for driver screen
+      />
 
       {/* Map */}
       <View style={{ flex: isMapFullScreen ? 1 : 0.4 }}>

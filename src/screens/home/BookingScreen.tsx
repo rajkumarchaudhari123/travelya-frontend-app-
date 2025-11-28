@@ -1,3 +1,5 @@
+// screens/BookingScreen.tsx - COMPLETE FIXED VERSION
+
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -12,6 +14,7 @@ import {
 import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // ✅ IMPORT ADDED
 
 import { useBookingData } from '@/hooks/useBookingData';
 import { useLocationTracking } from '@/hooks/useLocationTracking';
@@ -47,6 +50,8 @@ export default function BookingScreen() {
   const [bookingStatus, setBookingStatus] = useState<BookingStatus>(BOOKING_STATUS.CONFIRMED);
   const [progress] = useState(new Animated.Value(0));
   const [isMapExpanded, setIsMapExpanded] = useState(false);
+  const [isDriverView, setIsDriverView] = useState(false);
+  const [currentDriverId, setCurrentDriverId] = useState<string | null>(null); // ✅ STATE ADDED
 
   // Add validation for bookingId
   const validatedBookingId = bookingId || '';
@@ -60,11 +65,97 @@ export default function BookingScreen() {
     setBookingStatus
   );
 
+  // ✅ GET CURRENT DRIVER ID FROM ASYNC STORAGE
+  useEffect(() => {
+    const getCurrentDriverId = async () => {
+      try {
+        // Try to get driver data from AsyncStorage
+        const driverData = await AsyncStorage.getItem('driverData');
+        console.log('📱 Driver data from storage:', driverData);
+        
+        if (driverData) {
+          const parsedData = JSON.parse(driverData);
+          setCurrentDriverId(parsedData.id);
+          console.log('✅ Current driver ID:', parsedData.id);
+        } else {
+          // Fallback: Check if user is driver based on booking data
+          if (bookingData?.driverId) {
+            setCurrentDriverId(bookingData.driverId);
+            console.log('✅ Using driver ID from booking:', bookingData.driverId);
+          }
+        }
+      } catch (error) {
+        console.log('❌ Error getting driver ID:', error);
+      }
+    };
+
+    getCurrentDriverId();
+  }, [bookingData]);
+
   // Log the bookingId for debugging
   useEffect(() => {
     console.log('📱 BookingScreen mounted with bookingId:', bookingId);
     console.log('🔍 Validated bookingId:', validatedBookingId);
   }, [bookingId, validatedBookingId]);
+
+  // ✅ Check if current user is driver
+useEffect(() => {
+  const checkIfDriver = async () => {
+    try {
+      console.log('👨‍💼 [DRIVER CHECK] Starting driver detection...');
+
+      // Method 1: Check if user has driver data in storage
+      const driverData = await AsyncStorage.getItem('driverData');
+      console.log('👨‍💼 [DRIVER CHECK] Driver data from storage:', driverData);
+      
+      if (driverData) {
+        const parsedDriver = JSON.parse(driverData);
+        console.log('👨‍💼 [DRIVER CHECK] User is a registered driver:', parsedDriver.id);
+        setIsDriverView(true);
+        return;
+      }
+
+      // Method 2: Check user data and compare with booking driver
+      const userData = await AsyncStorage.getItem('userData');
+      console.log('👨‍💼 [DRIVER CHECK] User data from storage:', userData);
+      
+      if (userData && bookingData?.driverId) {
+        const user = JSON.parse(userData);
+        console.log('👨‍💼 [DRIVER CHECK] Comparing IDs:', {
+          userId: user.id,
+          bookingDriverId: bookingData.driverId,
+          areEqual: user.id === bookingData.driverId
+        });
+        
+        const isAssignedDriver = user.id === bookingData.driverId;
+        console.log('👨‍💼 [DRIVER CHECK] Is assigned driver:', isAssignedDriver);
+        setIsDriverView(isAssignedDriver);
+        return;
+      }
+
+      // Method 3: Check if we're in driver context (from navigation or props)
+      if (bookingData?.driverId) {
+        console.log('👨‍💼 [DRIVER CHECK] Booking has driver assigned:', bookingData.driverId);
+        // If we're viewing a booking with a driver, assume we might be that driver
+        // This is a fallback for when user data is not available
+        setIsDriverView(true);
+        return;
+      }
+
+      // Default: Not a driver
+      console.log('👨‍💼 [DRIVER CHECK] User is not a driver');
+      setIsDriverView(false);
+
+    } catch (error) {
+      console.log('❌ [DRIVER CHECK] Error checking driver status:', error);
+      setIsDriverView(false);
+    }
+  };
+
+  if (bookingData) {
+    checkIfDriver();
+  }
+}, [bookingData]);
 
   useEffect(() => {
     if (bookingStatus === BOOKING_STATUS.DRIVER_ASSIGNED) {
@@ -75,9 +166,7 @@ export default function BookingScreen() {
     }
   }, [bookingStatus]);
 
-  // Calculate effective driver info - create from individual fields
-  // BookingScreen.tsx में
-  // BookingScreen.tsx में effectiveDriverInfo fix करें
+  // Calculate effective driver info
   const effectiveDriverInfo: DriverInfo | null = React.useMemo(() => {
     console.log('🔍 Booking Data for driver:', {
       hasDriverObject: !!bookingData?.driver,
@@ -93,7 +182,7 @@ export default function BookingScreen() {
       return {
         id: bookingData.driver.id,
         name: bookingData.driver.fullName || bookingData.driver.name,
-        phone: bookingData.driver.phone || "", // ✅ fixed
+        phone: bookingData.driver.phone || "",
         vehicleNumber: bookingData.driver.vehicleNumber,
         rating: bookingData.driver.rating || "4.8"
       };
@@ -104,7 +193,7 @@ export default function BookingScreen() {
       return {
         id: bookingData.driverId || `driver-${Date.now()}`,
         name: bookingData.driverName,
-        phone: bookingData.driverPhone || "", // ✅ fixed
+        phone: bookingData.driverPhone || "",
         vehicleNumber: bookingData.driverVehicle || "Not assigned",
         rating: "4.8"
       };
@@ -116,10 +205,29 @@ export default function BookingScreen() {
     return null;
   }, [bookingData, driverInfo]);
 
+  // ✅ Handle OTP Verification
+  const handleOTPVerified = () => {
+    Alert.alert(
+      'OTP Verified!',
+      'Ride has been verified. You can now start the trip.',
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            console.log('OTP verified, ride can start');
+            // You can update booking status here if needed
+          }
+        }
+      ]
+    );
+  };
+
   // Debug useEffect
   useEffect(() => {
     console.log('🎯 Effective Driver Info:', effectiveDriverInfo);
-  }, [effectiveDriverInfo]);
+    console.log('👨‍💼 Is Driver View:', isDriverView);
+    console.log('🆔 Current Driver ID:', currentDriverId);
+  }, [effectiveDriverInfo, isDriverView, currentDriverId]);
 
   const handleCancelBooking = async () => {
     if (!validatedBookingId) {
@@ -203,7 +311,7 @@ export default function BookingScreen() {
     return <ErrorScreen navigation={destinationNavigation} message="Booking not found" />;
   }
 
-  const { vehicleType, fromLocation, toLocation, price, distance } = bookingData;
+  const { vehicleType, fromLocation, toLocation, price, distance, customerName, customerPhone } = bookingData;
 
   return (
     <View className="flex-1 bg-gray-50">
@@ -217,6 +325,9 @@ export default function BookingScreen() {
 
       {/* Scrollable Content */}
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+
+    
+
         {/* Live Map Section */}
         {mapRegion && (
           <View className="bg-white mx-4 my-4 rounded-2xl shadow-lg border border-gray-100 overflow-hidden">

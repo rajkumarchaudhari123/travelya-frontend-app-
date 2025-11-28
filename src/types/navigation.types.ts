@@ -1,3 +1,5 @@
+// types/navigation.types.ts - UPDATED VERSION
+
 export type RootStackParamList = {
     DriverDashboard: undefined;
     DriverRideInProgress: {
@@ -8,6 +10,7 @@ export type RootStackParamList = {
         distance: string;
         customerName: string;
         customerPhone: string;
+        driverId: string; // ✅ ADD THIS LINE
     };
     DriverNotification: {
         driverData?: {
@@ -30,6 +33,7 @@ export interface RideRequest {
     customerPhone: string;
     customerRating: number;
     timestamp: string;
+    driverId: string; // ✅ This is already here - good!
 }
 
 export interface DriverData {

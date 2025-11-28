@@ -1,3 +1,5 @@
+// types/booking.types.ts - Complete Update
+
 export type RootStackParamList = {
   DestinationSearch: undefined;
   BookingScreen: {
@@ -5,7 +7,7 @@ export type RootStackParamList = {
   };
 };
 
-export type BookingStatus = 'confirmed' | 'driver_assigned' | 'arriving' | 'ongoing' | 'completed';
+export type BookingStatus = 'confirmed' | 'driver_assigned' | 'arriving' | 'ongoing' | 'completed' | 'otp_verified';
 
 export interface Location {
   latitude: number;
@@ -18,7 +20,7 @@ export interface DriverInfo {
   phone: string;
   vehicleNumber: string;
   rating: string;
-   fullName?: string;
+  fullName?: string;
   email?: string;
 }
 
@@ -31,8 +33,25 @@ export interface BookingData {
   distance: string;
   driverId?: string;
   driverName?: string;
-   driverPhone?: string;
+  driverPhone?: string;
   driverVehicle?: string;
   driver?: DriverInfo;
   status: string;
+  
+  // ✅ ADD THESE CUSTOMER FIELDS
+  customerName: string;
+  customerPhone: string;
+  customerEmail?: string;
+  customerRating?: string;
+  
+  // ✅ ADD LOCATION COORDINATES (if needed)
+  pickupLat?: number;
+  pickupLng?: number;
+  dropLat?: number;
+  dropLng?: number;
+  
+  // ✅ ADD OTP INFO (if needed)
+  otpCode?: string;
+  otpVerified?: boolean;
+  otpExpiresAt?: string;
 }
